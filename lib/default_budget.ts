@@ -1,0 +1,28 @@
+import { Budget } from "@/types/budget";
+
+export const DEFAULT_BUDGET: Budget = {
+  id: "",
+  user_id: "",
+  client_id: null,
+  public_code: "BORRADOR#",
+  dates: {
+    sent: "",
+    estimated: "",
+  },
+  client_name: "",
+  logo_url: "",
+  services: [],
+  conditions: "",
+  budget_details: "",
+  participants: [],
+  website: "",
+  contact_number: "",
+  footer_img_url: "",
+  status: "draft",
+  settings: {
+    show_budget_conditions: true,
+    show_budget_details: true,
+    show_footer_url: true,
+    show_logo_url: true,
+  },
+};
