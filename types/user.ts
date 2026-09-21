@@ -2,7 +2,11 @@ import * as z from "zod";
 
 export const UserInfoSchema = z.object({
   id: z.string(),
-  full_name: z.string().default(""),
+  full_name: z
+    .string()
+    .default("")
+    .nullable()
+    .transform((val) => (!val ? "sin nombre" : val)),
   role: z.string().default(""),
   avatar_url: z.string().default(""),
   contact_number: z.string().default(""),
