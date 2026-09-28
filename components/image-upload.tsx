@@ -33,8 +33,8 @@ export function ImageUpload({
     <div
       className={`${defaultSrc.length ? "" : "border-dashed border-balance border"} rounded-md  relative group  object-cover`}
     >
-      <div className="absolute group-hover:text-black z-30 right-0 top-0">
-        <X onClick={onDeleteImage} className="cursor-pointer" />
+      <div className="absolute bg-white rounded-md group-hover:text-black z-30 right-0 top-0">
+        <X onClick={onDeleteImage} className="cursor-pointer text-gray-500" />
       </div>
       {loading && (
         <div className="w-full h-full rounded-md flex flex-col items-center justify-center rounded-full bg-white/80 p-10 absolute z-10">
@@ -55,7 +55,13 @@ export function ImageUpload({
         />
       ) : (
         <div>
-          <ImageIcon className="text-balance w-full h-full p-10" />
+          <ImageIcon
+            style={{
+              width: size,
+              height: size,
+            }}
+            className="text-balance p-10"
+          />
         </div>
       )}
 
