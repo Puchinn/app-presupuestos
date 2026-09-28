@@ -13,6 +13,7 @@ import { HookReturn } from "../hooks/use-budget";
 import { changeFooterUrl, changeLogoUrl } from "../actions";
 import type { Budget } from "../types";
 import { saveService } from "@/features/services-catalog/actions";
+import { getPublicStorageUrl } from "@/lib/utils";
 
 export function BudgetEdit({ budget, methods }: HookReturn) {
   const changeLogo = async (file: File) => {
@@ -45,7 +46,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
             <div className="flex w-35 h-35 items-center">
               {settings.show_logo_url && (
                 <ImageUpload
-                  defaultSrc={budget.logo_url}
+                  defaultSrc={getPublicStorageUrl(budget.logo_url)}
                   onUpload={changeLogo}
                   size={140}
                   onDeleteImage={() => clearImage("logo_url")}
@@ -301,7 +302,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                 <ImageUpload
                   onUpload={changeFooterImage}
                   size={80}
-                  defaultSrc={budget.footer_img_url}
+                  defaultSrc={getPublicStorageUrl(budget.footer_img_url)}
                   onDeleteImage={() => clearImage("footer_img_url")}
                 />
               )}
