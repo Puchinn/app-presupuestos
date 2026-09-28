@@ -1,4 +1,4 @@
-import { Budget } from "@/types/budget";
+import type { Budget } from "@/features/budget/types";
 
 export const DEFAULT_BUDGET: Budget = {
   id: "",
@@ -25,4 +25,6 @@ export const DEFAULT_BUDGET: Budget = {
     show_footer_url: true,
     show_logo_url: true,
   },
+  sent_status: "draft",
+  total_price_services: 0,
 };

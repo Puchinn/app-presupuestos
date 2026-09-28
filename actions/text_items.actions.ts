@@ -2,52 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import type { BudgetItem, TextItem } from "@/types/resources";
-
-export async function getBudgetCategories(): Promise<BudgetItem[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data, error } = await supabase
-    .from("budget_items")
-    .select("*")
-    .or(`user_id.is.null${user ? `,user_id.eq.${user.id}` : ""}`)
-    .order("name", { ascending: true });
-
-  if (error) {
-    console.error("Error al obtener categorías:", error.message);
-    return [];
-  }
-
-  return (data || []) as BudgetItem[];
-}
-
-export async function createBudgetCategory(name: string): Promise<BudgetItem> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Usuario no autenticado");
-
-  const { data, error } = await supabase
-    .from("budget_items")
-    .insert({
-      name,
-      user_id: user.id,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error("Error al crear categoría: " + error.message);
-  }
-
-  revalidatePath("/edit");
-  return data as BudgetItem;
-}
+import type { TextItem } from "@/features/text-item/types";
 
 export async function createTextItem(content: string): Promise<TextItem> {
   const supabase = await createClient();
