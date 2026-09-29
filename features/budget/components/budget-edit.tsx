@@ -2,7 +2,6 @@
 
 import { Plus, Save, Trash2, UserPlus } from "lucide-react";
 
-import { createTextItem } from "@/actions/text_items.actions";
 import { ImageUpload } from "@/components/image-upload";
 import { DatePicker } from "@/components/ui/date-picker";
 import { EditableField } from "@/components/editable-field";
@@ -14,6 +13,7 @@ import { changeFooterUrl, changeLogoUrl } from "../actions";
 import type { Budget } from "../types";
 import { saveService } from "@/features/services-catalog/actions";
 import { getPublicStorageUrl } from "@/lib/utils";
+import { createTextItem } from "@/features/text-item/actions";
 
 export function BudgetEdit({ budget, methods }: HookReturn) {
   const changeLogo = async (file: File) => {
