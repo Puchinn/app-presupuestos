@@ -9,7 +9,7 @@ const FIELD_LABELS: Record<string, string> = {
   services: "Servicios",
   logo_url: "Logo de empresa",
   conditions: "Condiciones de pago",
-  budget_details: "Detalles del presupuesto",
+  budget_details: "Detalle del presupuesto",
 };
 
 export function TabInfo() {

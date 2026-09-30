@@ -1,6 +1,8 @@
 "use client";
 
-import { Plus, Save, Trash2, UserPlus } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { AlertCircle, Check, Plus, Save, Trash2, UserPlus } from "lucide-react";
 
 import { ImageUpload } from "@/components/image-upload";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -16,6 +18,48 @@ import { getPublicStorageUrl } from "@/lib/utils";
 import { createTextItem } from "@/features/text-item/actions";
 
 export function BudgetEdit({ budget, methods }: HookReturn) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [saveNotice, setSaveNotice] = useState<{
+    campo: "conditions" | "budget_details";
+    type: "ok" | "error";
+    text: string;
+  } | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    },
+    [],
+  );
+
+  const refresh = () => startTransition(() => router.refresh());
+
+  const showSaveNotice = (
+    campo: "conditions" | "budget_details",
+    type: "ok" | "error",
+    text: string,
+  ) => {
+    setSaveNotice({ campo, type, text });
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setSaveNotice(null), 3000);
+  };
+
+  const guardarTexto = async (campo: "conditions" | "budget_details") => {
+    const contenido =
+      campo === "conditions" ? budget.conditions : budget.budget_details;
+    const result = await createTextItem(contenido);
+    if (result.ok) refresh();
+    showSaveNotice(
+      campo,
+      result.ok ? "ok" : "error",
+      result.ok
+        ? "Fragmento guardado en la biblioteca."
+        : result.error,
+    );
+  };
+
   const changeLogo = async (file: File) => {
     const url = await changeLogoUrl(file, budget.id);
     methods.editBudgetInfo({
@@ -245,14 +289,32 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                   Condiciones de pago
                 </h3>
                 <button
-                  onClick={() => createTextItem(budget.conditions)}
-                  className="print:hidden flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
+                  onClick={() => guardarTexto("conditions")}
+                  disabled={isPending}
+                  className="print:hidden flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-50"
                   title="Guardar esta condicion para reutilizarla"
                 >
                   <Save className="h-3 w-3" />
                   Guardar
                 </button>
               </div>
+              {saveNotice && saveNotice.campo === "conditions" && (
+                <p
+                  role="status"
+                  className={`print:hidden flex items-center gap-1.5 text-[11px] font-semibold mb-3 ${
+                    saveNotice.type === "error"
+                      ? "text-rose-600"
+                      : "text-emerald-600"
+                  }`}
+                >
+                  {saveNotice.type === "error" ? (
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  {saveNotice.text}
+                </p>
+              )}
               <EditableField
                 value={budget.conditions}
                 onChange={(value) =>
@@ -273,14 +335,32 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                   Detalle del presupuesto
                 </h2>
                 <button
-                  onClick={() => createTextItem(budget.budget_details)}
-                  className="print:hidden flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
+                  onClick={() => guardarTexto("budget_details")}
+                  disabled={isPending}
+                  className="print:hidden flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-50"
                   title="Guardar este detalle para reutilizarlo"
                 >
                   <Save className="h-3 w-3" />
                   Guardar
                 </button>
               </div>
+              {saveNotice && saveNotice.campo === "budget_details" && (
+                <p
+                  role="status"
+                  className={`print:hidden flex items-center gap-1.5 text-[11px] font-semibold mb-3 ${
+                    saveNotice.type === "error"
+                      ? "text-rose-600"
+                      : "text-emerald-600"
+                  }`}
+                >
+                  {saveNotice.type === "error" ? (
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  {saveNotice.text}
+                </p>
+              )}
               <EditableField
                 value={budget.budget_details}
                 onChange={(value) =>

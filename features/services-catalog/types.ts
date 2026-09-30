@@ -16,3 +16,8 @@ export type Service = z.infer<typeof ServiceSchema>;
 
 /** Resultado tipado de las actions de catálogo (ver convención en AGENTS.md). */
 export type ServiceActionResult = { ok: true } | { ok: false; error: string };
+
+/** Resultado tipado de la lista del catálogo: distingue "vacío" de "error" (T-011). */
+export type ServiceListResult =
+  | { ok: true; data: Service[] }
+  | { ok: false; error: string };

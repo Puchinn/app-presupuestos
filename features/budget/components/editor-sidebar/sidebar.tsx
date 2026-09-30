@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { Service } from "@/features/services-catalog/types";
+import type { ServiceListResult } from "@/features/services-catalog/types";
+import type { TextListResult } from "@/features/text-item/types";
 import {
   Briefcase,
   ChevronLeft,
@@ -18,7 +19,8 @@ import { TabTexts } from "./tab-texts";
 import { TabSettings } from "./tab-settings";
 
 interface SideBarProps {
-  services: Service[];
+  services: ServiceListResult;
+  texts: TextListResult;
 }
 
 type Tab = "info" | "servicios" | "clientes" | "textos" | "configuracion";
@@ -57,7 +59,7 @@ const menuItems: TabItemMenu[] = [
   },
 ];
 
-export function SideBar({ services }: SideBarProps) {
+export function SideBar({ services, texts }: SideBarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("info");
 
@@ -95,7 +97,7 @@ export function SideBar({ services }: SideBarProps) {
           {activeTab === "clientes" && <TabClient />}
 
           {/* Tab 4: TEXTOS & ALCANCE */}
-          {activeTab === "textos" && <TabTexts />}
+          {activeTab === "textos" && <TabTexts texts={texts} />}
 
           {/* Tab 5: CONFIGURACIÓN COMERCIAL */}
           {activeTab === "configuracion" && <TabSettings />}

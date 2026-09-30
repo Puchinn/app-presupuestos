@@ -1,7 +1,12 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Briefcase } from "lucide-react";
 import { useBudgetContext } from "../../context/context-provider";
-import type { Service } from "@/features/services-catalog/types";
+import { EmptyState } from "@/components/ui/empty-state";
+import type {
+  Service,
+  ServiceListResult,
+} from "@/features/services-catalog/types";
 import {
   deleteService,
   updateService,
@@ -9,7 +14,7 @@ import {
 import { ServiceCard } from "@/features/services-catalog/components/new-servicecard";
 
 interface TabServicesProps {
-  services: Service[];
+  services: ServiceListResult;
 }
 
 export function TabServices({ services }: TabServicesProps) {
@@ -18,7 +23,7 @@ export function TabServices({ services }: TabServicesProps) {
   // La lista vive solo en la prop del servidor: así "Guardar este servicio"
   // del documento (que agrega al catálogo con el sidebar abierto) la mantiene
   // sincronizada sin que haga falta un estado local que pudiera quedar viejo.
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   const refresh = () => startTransition(() => router.refresh());
 
@@ -64,17 +69,53 @@ export function TabServices({ services }: TabServicesProps) {
         presupuesto:
       </p>
 
-      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-        {services.map((service) => (
-          <ServiceCard
-            key={service.id}
-            service={service}
-            onAdd={handleUse}
-            onUpdate={handleUpdate}
-            onDelete={handleDelete}
-          />
-        ))}
-      </div>
+      {/* Estado de error: `getServices` distingue fallo de lista vacía */}
+      {!services.ok && (
+        <div
+          role="alert"
+          className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1.5"
+        >
+          <p className="text-xs font-semibold text-rose-700 leading-snug">
+            {services.error}
+          </p>
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={isPending}
+            className="text-xs font-semibold text-rose-800 underline hover:text-rose-900 disabled:opacity-50"
+          >
+            {isPending ? "Reintentando..." : "Reintentar"}
+          </button>
+        </div>
+      )}
+
+      {/* Estado vacío */}
+      {services.ok && services.data.length === 0 && (
+        <EmptyState
+          icon={<Briefcase className="w-8 h-8" aria-hidden="true" />}
+          title="Tu catálogo está vacío"
+          description='Creá el primero con "+ Ítem vacío" o guardá un servicio desde el documento.'
+        />
+      )}
+
+      {/* Lista */}
+      {services.ok && services.data.length > 0 && (
+        <div
+          className={`space-y-2 max-h-80 overflow-y-auto pr-1 transition-opacity ${
+            isPending ? "opacity-60" : ""
+          }`}
+        >
+          {services.data.map((service) => (
+            <ServiceCard
+              key={service.id}
+              service={service}
+              onAdd={handleUse}
+              onUpdate={handleUpdate}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

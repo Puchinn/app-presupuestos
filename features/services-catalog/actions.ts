@@ -2,8 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { Service, ServiceSchema, ServiceActionResult } from "./types";
-import { TextItem } from "../text-item/types";
+import { Service, ServiceSchema, ServiceActionResult, ServiceListResult } from "./types";
 
 // La ruta lleva el route group porque revalidatePath se etiqueta contra
 // `definition.page` (que conserva `(budget)`), no contra la URL visible.
@@ -13,13 +12,13 @@ function revalidateEditor() {
   revalidatePath(EDIT_PATH, "page");
 }
 
-export async function getServices(): Promise<Service[]> {
+export async function getServices(): Promise<ServiceListResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return [];
+  if (!user) return { ok: false, error: "Usuario no autenticado." };
 
   const { data, error } = await supabase
     .from("services")
@@ -28,32 +27,13 @@ export async function getServices(): Promise<Service[]> {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Error al obtener servicios:", error.message);
-    return [];
+    return {
+      ok: false,
+      error: "No se pudo cargar tu catálogo: " + error.message,
+    };
   }
 
-  return (data || []) as Service[];
-}
-
-export async function getUserTexts(): Promise<TextItem[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return [];
-
-  const { data, error } = await supabase
-    .from("text_items")
-    .select("*")
-    .eq("user_id", user.id);
-
-  if (error) {
-    console.error("Error al obtener textos:", error.message);
-    return [];
-  }
-
-  return (data || []) as TextItem[];
+  return { ok: true, data: (data || []) as Service[] };
 }
 
 export async function saveService(service: Partial<Service>) {
