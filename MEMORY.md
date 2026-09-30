@@ -3,7 +3,7 @@
 > Este archivo lo lee y lo mantiene el agente. `AGENTS.md` tiene las reglas estables; aquí va lo que cambia.
 > Si hay contradicción entre ambos, manda `AGENTS.md`. Ver "Protocolo de MEMORY.md" allí.
 
-Última actualización: 2026-09-30 (T-010 hecha; creada T-019; mantenida por el agente)
+Última actualización: 2026-09-30 (T-010 y T-015 hechas; T-019 ajustada; mantenida por el agente)
 
 ## 1. Estado actual
 
@@ -65,17 +65,25 @@ Las tareas se hacen de a una y con plan aprobado. El orden sugerido es de arriba
 - **T-013** · Pestaña Textos: cablear notas/términos + biblioteca de fragmentos · pendiente
   Decidido: "Términos de pago" → `conditions`, "Notas y alcance" → `budget_details`, **se borra** "Título o concepto principal". Biblioteca de `text_items` que inserta **al final** del campo. Depende de T-018 (mover `getUserTexts` a `features/text-item`).
 - **T-014** · Moneda, IVA, descuento y plazo de entrega · pendiente (diferida)
-  Decidido: se difiere todo a T-014 y **mientras tanto se quitan esos controles de la UI** (hoy están muertos). El plazo de entrega probablemente sea `dates.estimated`. Cuando se retome: migración/schema y efecto en totales y PDF.
-- **T-015** · Controles para los toggles de `settings` · pendiente
-  Decidido: claves nuevas **sin migración**, solo agregarlas al schema zod con `.default(...)` (regla de AGENTS.md sobre jsonb). `settings` guarda únicamente opciones de visualización: nada de IVA, moneda ni descuento acá.
+  Decidido: se difiere todo a T-014 y **mientras tanto se quitan esos controles de la UI** (hecho en T-015, 2026-09-30). El plazo de entrega probablemente sea `dates.estimated`. Cuando se retome: migración/schema y efecto en totales y PDF.
+- **T-015** · Controles para los toggles de `settings` · hecha 2026-09-30
+  Hecho: `tab-settings.tsx` reescrito con 4 `Switch` (componente nuevo `components/ui/switch.tsx` de shadcn, `pnpm dlx shadcn@latest add switch`; el CLI solo creó ese archivo) y se borraron los controles muertos de moneda/IVA/descuento/plazo; nuevo `editSetting(clave, valor)` en `useBudget` con merge anidado; pestaña renombrada a "Configuración" con subtítulo "Qué se muestra en el documento". Persiste por el autoguardado normal (el payload ya incluía `settings`). Verificado con `tsc`, `lint` (línea base, sin errores nuevos) y `build`; **no** se probó en el navegador.
+  Decidido (2026-09-29): claves **sin migración**, solo agregarlas al schema zod con `.default(...)` (regla de AGENTS.md sobre jsonb). `settings` guarda únicamente opciones de visualización: nada de IVA, moneda ni descuento acá.
+  Plan aprobado 2026-09-30:
+  - **Objetivo:** cablear los 4 toggles de `settings` en la pestaña del sidebar y quitar los controles muertos diferidos a T-014 (moneda, IVA, descuento, plazo).
+  - **Archivos:** `features/budget/components/editor-sidebar/tab-settings.tsx` (reescribir), `features/budget/hooks/use-budget.ts` (método nuevo `editSetting`), `features/budget/components/editor-sidebar/sidebar.tsx` (etiqueta + subtítulo). Sin migración y sin tocar `types.ts`, `actions.ts` ni `budget-edit.tsx`.
+  - **Pasos:** 1) borrar los 4 bloques muertos; 2) agregar 4 filas de toggle; 3) persistencia vía autoguardado (el payload ya incluye `settings` y `updateBudget` lo parsea con `BudgetSchema`).
+  - **Respuestas del dueño:** **opción B** → `editSetting(clave, valor)` en `useBudget` con update funcional anidado (clave tipada `keyof` de settings, valor booleano); **Switch de shadcn** con `pnpm dlx shadcn@latest add switch` y revisar `git status` después (si el CLI toca algo más que el componente nuevo, detenerse y avisar); pestaña renombrada a **"Configuración"** con subtítulo **"Qué se muestra en el documento"**; los textos de los toggles son **los encabezados de sección de `budget-edit.tsx`**, no los del plan.
+  - **Fuera de alcance:** la limitación del `ImageUpload` (ver §5).
+  - **Verificación:** `tsc`, `lint` contra la línea base, `build`; sin prueba en navegador.
 - **T-016** · Emisión: validación en servidor y checklist en dos niveles · pendiente
-  Decidido: `emitBudget` valida en el servidor lo esencial (**razón social** y **al menos un servicio**); el checklist de Info pasa a dos niveles (esencial para emitir / recomendado) y **`client_id` sale del checklist**. Sigue faltando que el botón "Emitir presupuesto" tenga `onClick`.
+  Decidido: `emitBudget` valida en el servidor lo esencial (**razón social** y **al menos un servicio**); el checklist de Info pasa a dos niveles (esencial para emitir / recomendado) y **`client_id` sale del checklist**. El botón "Emitir presupuesto" no tiene `onClick` (nadie puede emitir desde la UI) y **T-016 se implementa junto con T-019**: no puede haber emisión sin bloquear la edición. Además (2026-09-30): el checklist **no debe exigir** `logo_url`, `conditions` ni `budget_details` si su toggle de `settings` está apagado.
 - **T-017** · `/profile`: columnas reales y limpieza de UI · pendiente
   Decidido: **borrar `BankSection`**; los campos Mock pasan a columnas reales (estudio, CUIT, ciudad) → migración de `profiles` + `UserInfoSchema`; **email de solo lectura** desde `auth`; **`avatar_url` fuera** del formulario (la columna existe en DB y no se toca). Toca también el copy que promete datos bancarios.
 - **T-018** · Mover `getUserTexts` a `features/text-item` y completar actions de `text_items` · pendiente
   Hoy vive en `features/services-catalog/actions.ts`; faltan update, delete y list consumido. Es el cimiento de la biblioteca de T-013.
 - **T-019** · Presupuestos emitidos (`status === "issued"`): editor de solo lectura + marca de agua · pendiente (prioridad alta)
-  Cuando `status === "issued"`, `/edit/[id]` debe ser de solo lectura (campos, servicios, participantes, fechas) y la marca de agua "Emitido" debe mostrarse **también en el editor**, no solo en el PDF. Ligada a T-016 (emisión).
+  Hoy el botón "Emitir presupuesto" (`header-status.tsx`) no tiene `onClick`, así que **no se puede emitir desde la UI**. **T-016 y T-019 se implementan juntas** (no emitir sin bloquear la edición). Cuando `status === "issued"`, `/edit/[id]` debe ser de solo lectura (campos, servicios, participantes, fechas) y la marca de agua "Emitido" debe mostrarse **también en el editor**, no solo en el PDF. El bloqueo debe validarse también en el **servidor**: `updateBudget` rechaza los cambios cuando `status === "issued"`.
 
 ### En curso
 
@@ -120,6 +128,9 @@ Formato: fecha · decisión · porqué.
 - 2026-09-30 · `revalidatePath` de `services-catalog` usa `"/(budget)/edit/[id]"` con `type: "page"`. · La etiqueta se compara contra `definition.page`, que **conserva** el route group; pasar la URL visible (`/edit/[id]`) no matchea.
 - 2026-09-30 · "Usar" del catálogo arma el ítem con solo `name`, `price`, `quantity`, `details` (nunca el objeto completo). · El catálogo tiene `id` y `user_id`; no deben viajar al presupuesto (snapshot). Por eso `addService` ahora recibe `Omit<Service, "id">`.
 - 2026-09-30 · El feedback de "Usar"/guardar/borrar vive en la propia `ServiceCard` (texto efímero de 3 s), sin librería de toasts. · No hay ningún sistema de avisos en el proyecto y el plan prohibía dependencias nuevas.
+- 2026-09-30 · T-015: los toggles se escriben con `editSetting(clave, valor)` (merge anidado en `setBudgetState`), no con `editBudgetInfo({ settings })`, que haría merge shallow y pisaría el objeto entero. · Seguridad contra estados obsoletos; costo: un método aditivo en `useBudget`.
+- 2026-09-30 · T-015: textos de los toggles = encabezados/textos de `budget-edit.tsx`: "Logo", "Conoce mis trabajos", "Condiciones de pago", "Detalle del presupuesto" ("Logo" lo eligió el dueño porque ese bloque no tiene encabezado en el documento). · Que lo que se apaga coincida con lo que el usuario ve en el documento.
+- 2026-09-30 · T-016 y T-019 se implementan **juntas** y el bloqueo de presupuestos emitidos se valida en el **servidor**: `updateBudget` rechaza cambios si `status === "issued"`. · Emitir sin bloquear la edición dejaría un presupuesto inmutable en DB pero editable en pantalla; el chequeo solo en cliente no alcanza porque el autoguardado escribe directo.
 
 ## 5. Bugs y deuda técnica
 
@@ -127,8 +138,9 @@ Formato: fecha · decisión · porqué.
 - Server actions solo hacen `throw`, sin manejo de errores en la UI (cubierto por T-008/T-009).
 - `updateBudget` sigue haciendo `throw` con un mensaje placeholder ("aaaca capo") y no filtra por `user_id` en el update (hoy lo cubre RLS, pero conviene filtrar igual como las demás acciones). T-001 ya cambió el parse a `BudgetSchema.omit({ sent_status: true })`; lo demás lo cubre T-008.
 - Carpeta raíz `actions/`: **ya no existe** (la mencionan AGENTS.md y esta sección; aviso al dueño). La deuda que queda son `getUserTexts` mal ubicado y `text_items` incompleto (T-018).
-- UI muerta sin handler (auditoría T-002): botón "Emitir presupuesto" y "Vista previa" (`header-status.tsx`), ~~"Usar"/"Guardar"/"Eliminar" de `ServiceCard`~~ (cableados en T-010), los 4 inputs de la pestaña Cliente menos `client_name`, los 3 campos de Textos y los 5 de Configuración, y 4 campos "Mock" + `BankSection` en `/profile`.
+- UI muerta sin handler (auditoría T-002): botón "Emitir presupuesto" y "Vista previa" (`header-status.tsx`), ~~"Usar"/"Guardar"/"Eliminar" de `ServiceCard`~~ (cableados en T-010), los 4 inputs de la pestaña Cliente menos `client_name`, los 3 campos de Textos y ~~los 5 de Configuración~~ (los 4 toggles cableados en T-015; los controles muertos de Configuración se borraron, diferidos a T-014), y 4 campos "Mock" + `BankSection` en `/profile`.
 - `DeleteAlertDialog` cierra el diálogo siempre que `onConfirm` resuelva, incluso si el borrado falló; el error queda visible solo como aviso efímero en la tarjeta. No se tocó el componente compartido en T-010.
+- Limitación conocida (queda fuera de T-015, anotada 2026-09-30): al apagar `show_logo_url` o `show_footer_url`, `budget-edit.tsx` oculta también el `ImageUpload`, así que no se puede cambiar la imagen sin reactivar el toggle.
 - `editBudgetInfo` acepta `status`, `sent_status`, `public_code` y `settings`: hoy ningún control abusa, pero nada lo impide (el autoguardado escribiría esas columnas).
 - Tabla `budget_items` (migración 1): **huérfana** — sin types, sin actions, sin componentes; además en `text_items` se le borró `budget_item_id` en la migración 2, así que nadie la referencia. Decidir si se usa o se elimina (borrar tabla = migración, pedir aprobación).
 - No hay tests ni CI. No agregar sin consultar.
@@ -157,3 +169,4 @@ Una línea por tarea terminada: `YYYY-MM-DD · T-XXX · resultado`.
 - 2026-09-29 · T-002 · Auditoría en solo lectura de las 5 pestañas del sidebar (tablas por campo, `useBudget`, `BudgetSchema` vs columnas, `/profile`, dominios, checklist) + registro de las decisiones de diseño; cableado derivado a T-010–T-018. Cero cambios de código.
 - 2026-09-30 · T-010 · `ServiceCard` cableada (Usar/Guardar/Eliminar) con resultado tipado, confirmación de borrado y `router.refresh()` en `useTransition`; `revalidatePath` → `/(budget)/edit/[id]`. `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador.
 - 2026-09-30 · — · Se creó T-019 (presupuestos emitidos de solo lectura en el editor, prioridad alta).
+- 2026-09-30 · T-015 · 4 toggles de `settings` cableados con `Switch` de shadcn + `editSetting` (merge anidado), pestaña renombrada a "Configuración" y controles muertos de T-014 eliminados. `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador.

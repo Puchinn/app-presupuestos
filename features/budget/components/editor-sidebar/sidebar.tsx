@@ -52,7 +52,7 @@ const menuItems: TabItemMenu[] = [
   },
   {
     id: "configuracion",
-    label: "Configuración Comercial",
+    label: "Configuración",
     icon: <Settings className="w-4 h-4" />,
   },
 ];

@@ -129,6 +129,15 @@ export function useBudget(initialBudget?: Budget) {
     setBudgetState((p) => ({ ...p, ...proper }));
   };
 
+  // Merge anidado: editBudgetInfo haría un merge shallow y pisaría el objeto
+  // settings completo, perdiendo los otros toggles.
+  const editSetting = (key: keyof BudgetInfo["settings"], value: boolean) => {
+    setBudgetState((p) => ({
+      ...p,
+      settings: { ...p.settings, [key]: value },
+    }));
+  };
+
   // Solo se llama después de que changeSentStatus devuelve ok: true.
   const setSentStatus = (sentStatus: SentStatus) => {
     setBudgetState((p) => ({ ...p, sent_status: sentStatus }));
@@ -238,6 +247,7 @@ export function useBudget(initialBudget?: Budget) {
       editService,
       editDates,
       editBudgetInfo,
+      editSetting,
       setSentStatus,
       removeParticipant,
       removeService,
