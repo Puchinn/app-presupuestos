@@ -90,6 +90,7 @@ Formato: fecha · decisión · porqué.
 - Cambiar una columna jsonb de `budgets` exige migración **y** actualizar el schema zod en el mismo cambio.
 - Tocar el flujo de cookies o `getClaims()` en `lib/supabase/proxy.ts` puede desloguear usuarios al azar.
 - Zod 4 (v4.6.2): `.default()` se ejecuta también dentro de `.optional()` y sobre `.partial()`. Si omitís un campo del payload para "no pisarlo", el default igual lo rellena en el parse. Para excluir una columna de un update, usá `.omit({ campo: true })` en el schema.
+- En los `DropdownMenu` de Base UI, `DropdownMenuLabel` y `DropdownMenuRadioGroup` deben ir dentro de un `DropdownMenuGroup` (o el label dentro del propio `DropdownMenuRadioGroup`); sin ese padre falta `MenuGroupContext` y la app se detiene con el error en runtime "MenuGroupContext is missing".
 
 ## 7. Notas del historial
 

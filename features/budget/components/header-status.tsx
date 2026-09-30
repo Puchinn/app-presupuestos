@@ -3,10 +3,11 @@
 import { ArrowLeft, Eye, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { SaveStatusIndicator } from "@/features/budget/components/status-indicator";
+import { ChangeStatusMenu } from "@/features/budget/components/change-status-menu";
 import { useBudgetContext } from "@/features/budget/context/context-provider";
 
 export function HeaderStatus() {
-  const { budget } = useBudgetContext();
+  const { budget, methods } = useBudgetContext();
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4 sticky top-20 z-20">
@@ -39,6 +40,14 @@ export function HeaderStatus() {
       </div>
 
       <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+        <ChangeStatusMenu
+          budgetId={budget.id}
+          current={budget.sent_status}
+          size="md"
+          className="items-end"
+          onChange={(next) => methods.setSentStatus(next)}
+        />
+
         <SaveStatusIndicator />
 
         <Link

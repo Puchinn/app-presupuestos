@@ -1,10 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { Budget } from "@/features/budget/types";
+import type { Budget, SentStatus } from "@/features/budget/types";
 import {
   BudgetSchema,
   ListBudgetSchema,
+  SentStatusSchema,
   UIBudgetSchema,
 } from "@/features/budget/types";
 import { DEFAULT_BUDGET } from "@/lib/default_budget";
@@ -106,7 +107,10 @@ export async function createNewBudget(): Promise<string> {
 export async function updateBudget(budget: Partial<Budget>) {
   const supabase = await createClient();
 
-  const parsed = BudgetSchema.parse(budget);
+  // Omitimos sent_status: esa columna solo la escribe changeSentStatus.
+  // No usamos .partial() ni .optional() porque en Zod 4 el .default() del schema
+  // se sigue aplicando y rellenaría sent_status con "draft", pisando el valor real.
+  const parsed = BudgetSchema.omit({ sent_status: true }).parse(budget);
 
   const { error } = await supabase
     .from("budgets")
@@ -123,6 +127,56 @@ export async function updateBudget(budget: Partial<Budget>) {
   return {
     success: true,
   };
+}
+
+/**
+ * Cambia el estado comercial (`sent_status`) de un presupuesto.
+ * Es la única vía permitida de escribir esa columna desde la UI.
+ * Transiciones libres: solo valida que el valor sea un `SentStatus` válido.
+ */
+export async function changeSentStatus(
+  budgetId: string,
+  sentStatus: SentStatus,
+): Promise<{ ok: true; sent_status: SentStatus } | { ok: false; error: string }> {
+  if (!budgetId) return { ok: false, error: "Falta el identificador del presupuesto." };
+
+  const parsedStatus = SentStatusSchema.safeParse(sentStatus);
+  if (!parsedStatus.success) {
+    return { ok: false, error: "El estado indicado no es válido." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo." };
+  }
+
+  const { data, error } = await supabase
+    .from("budgets")
+    .update({
+      sent_status: parsedStatus.data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", budgetId)
+    .eq("user_id", user.id)
+    .select("id");
+
+  if (error) {
+    console.error("Error al cambiar el estado del presupuesto:", error.message);
+    return { ok: false, error: "No se pudo cambiar el estado del presupuesto. Intenta de nuevo." };
+  }
+
+  if (!data || data.length === 0) {
+    return { ok: false, error: "No se encontró el presupuesto o no tienes permiso para modificarlo." };
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/edit/${budgetId}`);
+
+  return { ok: true, sent_status: parsedStatus.data };
 }
 
 export async function saveBudget(budget: Budget) {

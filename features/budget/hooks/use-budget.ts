@@ -5,14 +5,37 @@ import { DEFAULT_BUDGET } from "@/lib/default_budget";
 import { v4 as uuid } from "uuid";
 import type { Client } from "@/features/user/types";
 import { useDebouncedCallback } from "use-debounce";
-import { Budget, CheckEmpty } from "@/features/budget/types";
+import { Budget, CheckEmpty, type SentStatus } from "@/features/budget/types";
 import { updateBudget } from "../actions";
 
 type BudgetInfo = Omit<Budget, "services" | "participants" | "dates">;
 type Service = Budget["services"][number];
 type Participant = Budget["participants"][number];
 type Dates = Budget["dates"];
+type AutoSavePayload = Omit<Budget, "sent_status">;
 export type SaveStatus = "saved" | "saving" | "unsaved" | "error";
+
+// sent_status se cambia únicamente con la action changeSentStatus: el autoguardado
+// nunca lo escribe, así un guardado pendiente no puede pisar el estado recién cambiado.
+function toAutoSavePayload(
+  state: BudgetInfo,
+  services: Service[],
+  participants: Participant[],
+  dates: Dates,
+  totalPrice: number,
+): AutoSavePayload {
+  const payload = {
+    ...state,
+    services,
+    participants,
+    dates,
+    total_price_services: totalPrice,
+  } as AutoSavePayload & { sent_status?: SentStatus };
+
+  delete payload.sent_status;
+
+  return payload;
+}
 
 export function useBudget(initialBudget?: Budget) {
   const budgetData = initialBudget || DEFAULT_BUDGET;
@@ -36,7 +59,7 @@ export function useBudget(initialBudget?: Budget) {
     0,
   );
 
-  const saveChanges = async (dataToSave: Budget) => {
+  const saveChanges = async (dataToSave: AutoSavePayload) => {
     setSaveStatus("saving");
     try {
       const result = await updateBudget(dataToSave);
@@ -51,9 +74,12 @@ export function useBudget(initialBudget?: Budget) {
     }
   };
 
-  const debouncedSave = useDebouncedCallback((updatedBudget: Budget) => {
-    saveChanges(updatedBudget);
-  }, 800);
+  const debouncedSave = useDebouncedCallback(
+    (updatedBudget: AutoSavePayload) => {
+      saveChanges(updatedBudget);
+    },
+    800,
+  );
 
   const createBlankService = () => {
     setServices((p) =>
@@ -101,6 +127,11 @@ export function useBudget(initialBudget?: Budget) {
 
   const editBudgetInfo = (proper: Partial<BudgetInfo>) => {
     setBudgetState((p) => ({ ...p, ...proper }));
+  };
+
+  // Solo se llama después de que changeSentStatus devuelve ok: true.
+  const setSentStatus = (sentStatus: SentStatus) => {
+    setBudgetState((p) => ({ ...p, sent_status: sentStatus }));
   };
 
   const addService = (service: Service) => {
@@ -169,13 +200,15 @@ export function useBudget(initialBudget?: Budget) {
     }
 
     const executeSave = () => {
-      debouncedSave({
-        ...budgetState,
-        services,
-        participants,
-        dates,
-        total_price_services,
-      });
+      debouncedSave(
+        toAutoSavePayload(
+          budgetState,
+          services,
+          participants,
+          dates,
+          total_price_services,
+        ),
+      );
     };
 
     executeSave();
@@ -203,6 +236,7 @@ export function useBudget(initialBudget?: Budget) {
       editService,
       editDates,
       editBudgetInfo,
+      setSentStatus,
       removeParticipant,
       removeService,
       cleanBudget,

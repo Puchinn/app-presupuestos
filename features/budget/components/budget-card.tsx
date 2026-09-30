@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import type { Budget } from "../types";
-import { BadgeStatus } from "@/features/budget/components/badge-status";
+import { ChangeStatusMenu } from "@/features/budget/components/change-status-menu";
 import {
   Eye,
   Edit3,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatARS, formatDate } from "@/lib/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface BudgetCardProps {
   budget: Budget;
@@ -23,6 +24,7 @@ interface BudgetCardProps {
 
 export const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onSelect }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <div className="bg-white relative rounded-xl border border-slate-200 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden group focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-blue-600">
@@ -55,7 +57,12 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onSelect }) => {
             </div>
           </div>
 
-          <BadgeStatus status={budget.sent_status} size="sm" />
+          <ChangeStatusMenu
+            budgetId={budget.id}
+            current={budget.sent_status}
+            size="sm"
+            onChange={() => router.refresh()}
+          />
         </div>
 
         {/* Project Title */}
