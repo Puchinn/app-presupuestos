@@ -5,6 +5,7 @@ import { BudgetWrapper } from "@/features/budget/components/budget-wrapper";
 import { getById } from "@/features/budget/actions";
 import { getServices } from "@/features/services-catalog/actions";
 import { getUserTexts } from "@/features/text-item/actions";
+import { getClients } from "@/features/clients/actions";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -15,6 +16,7 @@ export default async function Page({ params }: Props) {
   const budget = await getById(id);
   const services = await getServices();
   const texts = await getUserTexts();
+  const clients = await getClients();
 
   if (!budget) return "No se encontro el documento.";
 
@@ -23,7 +25,7 @@ export default async function Page({ params }: Props) {
       <div className="max-w-7xl space-y-8 w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <HeaderStatus />
         <div className="flex flex-col lg:flex-row gap-6 items-start">
-          <SideBar services={services} texts={texts} />
+          <SideBar services={services} texts={texts} clients={clients} />
           <div className="w-full p-4 border rounded-xl">
             <div className="w-full rounded-xl overflow-hidden">
               <BudgetWrapper />

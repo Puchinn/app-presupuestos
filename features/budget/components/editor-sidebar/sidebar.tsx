@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ServiceListResult } from "@/features/services-catalog/types";
 import type { TextListResult } from "@/features/text-item/types";
+import type { ClientListResult } from "@/features/clients/types";
 import {
   Briefcase,
   ChevronLeft,
@@ -21,6 +22,7 @@ import { TabSettings } from "./tab-settings";
 interface SideBarProps {
   services: ServiceListResult;
   texts: TextListResult;
+  clients: ClientListResult;
 }
 
 type Tab = "info" | "servicios" | "clientes" | "textos" | "configuracion";
@@ -59,7 +61,7 @@ const menuItems: TabItemMenu[] = [
   },
 ];
 
-export function SideBar({ services, texts }: SideBarProps) {
+export function SideBar({ services, texts, clients }: SideBarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("info");
 
@@ -94,7 +96,7 @@ export function SideBar({ services, texts }: SideBarProps) {
           {activeTab === "servicios" && <TabServices services={services} />}
 
           {/* Tab 3: CLIENTES */}
-          {activeTab === "clientes" && <TabClient />}
+          {activeTab === "clientes" && <TabClient clients={clients} />}
 
           {/* Tab 4: TEXTOS & ALCANCE */}
           {activeTab === "textos" && <TabTexts texts={texts} />}

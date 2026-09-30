@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { DEFAULT_BUDGET } from "@/lib/default_budget";
 import { v4 as uuid } from "uuid";
-import type { Client } from "@/features/user/types";
+import type { Client } from "@/features/clients/types";
 import { useDebouncedCallback } from "use-debounce";
 import { Budget, CheckEmpty, type SentStatus } from "@/features/budget/types";
 import { updateBudget } from "../actions";

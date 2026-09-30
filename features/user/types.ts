@@ -22,12 +22,3 @@ export const UserInfoSchema = z.object({
 });
 
 export type UserInfo = z.infer<typeof UserInfoSchema>;
-
-export const ClientSchema = z.object({
-  id: z.string().uuid().or(z.string()),
-  name: z.string().min(1, "El nombre del cliente es requerido"),
-  user_id: z.string().uuid().or(z.string()),
-  email: z.string().optional().default(""),
-});
-
-export type Client = z.infer<typeof ClientSchema>;
