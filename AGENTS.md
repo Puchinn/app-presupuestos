@@ -73,10 +73,10 @@ Si no puedes verificar algo (por ejemplo, no puedes correr la app), dilo explíc
 
 - Alias `@/*` → raíz del repo; TS `strict`; Tailwind v4 vía PostCSS.
 - Layout por dominio: `features/<dominio>/` contiene `actions.ts` (server actions, `"use server"`), `types.ts` (schemas zod + tipos inferidos) y, si hace falta, `components/`, `hooks/`, `context/`. Las páginas en `app/` son delgadas: llaman a una server action y renderizan componentes de la feature. **La lógica de negocio nueva va en `features/`**, no en `app/` ni en `lib/`.
-- La carpeta raíz `actions/` (ej. `text_items.actions.ts`) es un remanente previo a la migración por dominios. No agregues código nuevo ahí.
+- Toda server action vive dentro de su dominio en `features/<dominio>/actions.ts`. Ya no existe una carpeta raíz `actions/`; no la recrees.
 - Estado del editor de presupuestos: `features/budget/context/context-provider.tsx` expone `useBudget`, que autoguarda con un `updateBudget` (server action) con debounce de 800 ms y expone `saveStatus`. No agregues un segundo estado ni otra capa de persistencia para editar presupuestos.
 - Clientes Supabase: `lib/supabase/client.ts` (browser), `server.ts` (server actions), `proxy.ts` (auth/sesión). La auth corre en el **`proxy.ts`** de la raíz (renombre de middleware en Next 16; no existe `middleware.ts`). Redirige a `/login` a los no autenticados.
-- Esquema de DB: SQL plano en `supabase/migrations/*.sql` con RLS habilitado; config local en `supabase/config.toml` (API 54321, DB 54322). `budgets` guarda `dates`, `services`, `participants`, `settings` como **jsonb**, reflejados por los schemas zod de `features/budget/types.ts`: un cambio de columna requiere migración **y** schema zod juntos.
+- Esquema de DB: SQL plano en `supabase/migrations/*.sql` con RLS habilitado; config local en `supabase/config.toml` (API 54321, DB 54322). `budgets` guarda `dates`, `services`, `participants`, `settings` como **jsonb**, reflejados por los schemas zod de `features/budget/types.ts`: un cambio de columna requiere migración **y** schema zod juntos. Agregar una clave _dentro_ de un objeto jsonb existente (ej. `settings`) no requiere migración, pero sí actualizar el schema zod declarando la clave nueva con `.default(...)`, para que las filas viejas se parseen bien.
 - Env: `.env.local` define `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
 ## Rutas actuales
@@ -112,6 +112,7 @@ Hoy las server actions solo hacen `throw`. Para código **nuevo** (y al tocar c�
 
 `MEMORY.md` es la memoria del proyecto y **tú eres responsable de mantenerla**. Al terminar cada tarea (y antes de reportar):
 
+- **Apenas recibas el OK a un plan, y antes de escribir código**, pega en la tarea de `MEMORY.md` el plan aprobado y las respuestas del dueño a tus decisiones (resumidos). Así cualquier sesión nueva puede retomar la tarea sin depender del historial del chat. Si quedó trabajo a medias, anota qué pasos están hechos.
 - Mueve la tarea a "Hecho" con fecha y una línea de resumen, o actualiza su estado.
 - Registra decisiones tomadas y su **porqué** en "Decisiones".
 - Registra bugs encontrados (arreglados o no) en "Bugs y deuda técnica".
