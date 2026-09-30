@@ -3,7 +3,7 @@
 > Este archivo lo lee y lo mantiene el agente. `AGENTS.md` tiene las reglas estables; aquí va lo que cambia.
 > Si hay contradicción entre ambos, manda `AGENTS.md`. Ver "Protocolo de MEMORY.md" allí.
 
-Última actualización: 2026-09-29 (T-001 y T-002 hechas; decisiones de diseño del sidebar registradas; mantenida por el agente)
+Última actualización: 2026-09-30 (T-010 hecha; creada T-019; mantenida por el agente)
 
 ## 1. Estado actual
 
@@ -54,8 +54,10 @@ Las tareas se hacen de a una y con plan aprobado. El orden sugerido es de arriba
   Migrar gradualmente, empezando por las acciones de presupuestos. Ver convención en `AGENTS.md`. Ya se hizo el mínimo de T-001: `changeSentStatus` devuelve resultado tipado y `updateBudget` usa `BudgetSchema.omit({ sent_status: true })` (sigue con `throw` y mensaje placeholder, falta el resto).
 - **T-009** · Estados de carga y UI de error/vacío · pendiente
   Aplicar en dashboard, editor y perfil. Puede hacerse junto con T-008.
-- **T-010** · Cablear "Usar" / editar / eliminar de `ServiceCard` en la pestaña Servicios · pendiente
-  `onAdd` → `methods.addService`, `onUpdate` → `updateService`, `onDelete` → `deleteService`. Unificar el tipo `Service` local de la card con `services-catalog` (falta `user_id`). Solo toca la tabla `services`: ninguna de esas acciones escribe `budgets` ni `sent_status`. Errores/estados van con T-011.
+- **T-010** · Cablear "Usar" / editar / eliminar de `ServiceCard` en la pestaña Servicios · hecha 2026-09-30
+  `ServiceCard` recibe `onAdd`/`onUpdate`/`onDelete` desde `tab-services.tsx`: "Usar" → `methods.addService` (ítem armado con solo `name/price/quantity/details`), "Guardar" → `updateService`, "Eliminar" → `deleteService` con confirmación en `DeleteAlertDialog`. La lista del catálogo **no** tiene estado local: se deriva de la prop del servidor y tras cada mutación se llama `router.refresh()` en un `useTransition`. `updateService`/`deleteService` devuelven `ServiceActionResult` (`{ ok: true } | { ok: false, error }`), `deleteService` usa `.select()` para detectar 0 filas afectadas. Feedback efímero (3 s) en la propia tarjeta para "Usar", "Servicio actualizado" y errores. Verificado con `tsc`, `lint` (línea base) y `build`; **no** se probó en el navegador.
+
+  Plan aprobado 2026-09-30 (decisiones del dueño): unificar `new-servicecard.tsx` sobre el `Service` de `services-catalog` y borrar la interfaz local (verificado antes: `ServiceCard` solo se usa en `tab-services.tsx`, siempre con `id`); `updateService`/`deleteService` a resultado tipado, con `.select()` en el delete; **sin estado local** para la lista → `router.refresh()` en `useTransition` + `revalidatePath` apuntando a `/edit/[id]` (motivo: "Guardar este servicio" del documento agrega al catálogo con el sidebar abierto); borrado confirmado con `delete-alert-dialog.tsx`; feedback efímero sin dependencias nuevas; crear servicios desde el sidebar **fuera** de T-010; en "Usar" solo `name/price/quantity/details`.
 - **T-011** · Estados vacío/carga/error del catálogo y del sidebar · pendiente
   Lista vacía del catálogo queda en blanco. Ojo: `getServices()` devuelve `[]` tanto sin datos como con error, así que hoy no se puede distinguir vacío de fallo. Aprovechar para la biblioteca de fragmentos de T-013.
 - **T-012** · Pestaña Cliente: selector y alta de clientes · pendiente
@@ -72,6 +74,8 @@ Las tareas se hacen de a una y con plan aprobado. El orden sugerido es de arriba
   Decidido: **borrar `BankSection`**; los campos Mock pasan a columnas reales (estudio, CUIT, ciudad) → migración de `profiles` + `UserInfoSchema`; **email de solo lectura** desde `auth`; **`avatar_url` fuera** del formulario (la columna existe en DB y no se toca). Toca también el copy que promete datos bancarios.
 - **T-018** · Mover `getUserTexts` a `features/text-item` y completar actions de `text_items` · pendiente
   Hoy vive en `features/services-catalog/actions.ts`; faltan update, delete y list consumido. Es el cimiento de la biblioteca de T-013.
+- **T-019** · Presupuestos emitidos (`status === "issued"`): editor de solo lectura + marca de agua · pendiente (prioridad alta)
+  Cuando `status === "issued"`, `/edit/[id]` debe ser de solo lectura (campos, servicios, participantes, fechas) y la marca de agua "Emitido" debe mostrarse **también en el editor**, no solo en el PDF. Ligada a T-016 (emisión).
 
 ### En curso
 
@@ -112,6 +116,10 @@ Formato: fecha · decisión · porqué.
 - 2026-09-29 · Claves nuevas dentro de `settings`: **sin migración**, solo la clave nueva en el schema zod con `.default(...)` (regla de AGENTS.md sobre jsonb). `settings` guarda únicamente **opciones de visualización**. · Separar lo visual de lo que afecta cálculos.
 - 2026-09-29 · Emisión: `emitBudget` valida en el **servidor** lo esencial (razón social y al menos un servicio); el checklist de Info pasa a **dos niveles** (esencial para emitir / recomendado) y `client_id` sale del checklist. · Con `client_id` opcional no puede ser requisito; lo crítico se valida donde no se puede saltar.
 - 2026-09-29 · Perfil: borrar `BankSection`; los campos Mock pasan a columnas reales (estudio, CUIT, ciudad); email de **solo lectura** desde `auth`; `avatar_url` queda fuera del formulario. · No mostrar ni prometer datos que no se guardan.
+- 2026-09-30 · El catálogo en el sidebar **no** tiene estado local: se deriva de la prop del servidor y se refresca con `router.refresh()` en un `useTransition`. · "Guardar este servicio" del documento agrega al catálogo con el sidebar abierto; una copia local quedaría desactualizada.
+- 2026-09-30 · `revalidatePath` de `services-catalog` usa `"/(budget)/edit/[id]"` con `type: "page"`. · La etiqueta se compara contra `definition.page`, que **conserva** el route group; pasar la URL visible (`/edit/[id]`) no matchea.
+- 2026-09-30 · "Usar" del catálogo arma el ítem con solo `name`, `price`, `quantity`, `details` (nunca el objeto completo). · El catálogo tiene `id` y `user_id`; no deben viajar al presupuesto (snapshot). Por eso `addService` ahora recibe `Omit<Service, "id">`.
+- 2026-09-30 · El feedback de "Usar"/guardar/borrar vive en la propia `ServiceCard` (texto efímero de 3 s), sin librería de toasts. · No hay ningún sistema de avisos en el proyecto y el plan prohibía dependencias nuevas.
 
 ## 5. Bugs y deuda técnica
 
@@ -119,7 +127,8 @@ Formato: fecha · decisión · porqué.
 - Server actions solo hacen `throw`, sin manejo de errores en la UI (cubierto por T-008/T-009).
 - `updateBudget` sigue haciendo `throw` con un mensaje placeholder ("aaaca capo") y no filtra por `user_id` en el update (hoy lo cubre RLS, pero conviene filtrar igual como las demás acciones). T-001 ya cambió el parse a `BudgetSchema.omit({ sent_status: true })`; lo demás lo cubre T-008.
 - Carpeta raíz `actions/`: **ya no existe** (la mencionan AGENTS.md y esta sección; aviso al dueño). La deuda que queda son `getUserTexts` mal ubicado y `text_items` incompleto (T-018).
-- UI muerta sin handler (auditoría T-002): botón "Emitir presupuesto" y "Vista previa" (`header-status.tsx`), "Usar"/"Guardar"/"Eliminar" de `ServiceCard`, los 4 inputs de la pestaña Cliente menos `client_name`, los 3 campos de Textos y los 5 de Configuración, y 4 campos "Mock" + `BankSection` en `/profile`.
+- UI muerta sin handler (auditoría T-002): botón "Emitir presupuesto" y "Vista previa" (`header-status.tsx`), ~~"Usar"/"Guardar"/"Eliminar" de `ServiceCard`~~ (cableados en T-010), los 4 inputs de la pestaña Cliente menos `client_name`, los 3 campos de Textos y los 5 de Configuración, y 4 campos "Mock" + `BankSection` en `/profile`.
+- `DeleteAlertDialog` cierra el diálogo siempre que `onConfirm` resuelva, incluso si el borrado falló; el error queda visible solo como aviso efímero en la tarjeta. No se tocó el componente compartido en T-010.
 - `editBudgetInfo` acepta `status`, `sent_status`, `public_code` y `settings`: hoy ningún control abusa, pero nada lo impide (el autoguardado escribiría esas columnas).
 - Tabla `budget_items` (migración 1): **huérfana** — sin types, sin actions, sin componentes; además en `text_items` se le borró `budget_item_id` en la migración 2, así que nadie la referencia. Decidir si se usa o se elimina (borrar tabla = migración, pedir aprobación).
 - No hay tests ni CI. No agregar sin consultar.
@@ -131,6 +140,9 @@ Formato: fecha · decisión · porqué.
 - Tocar el flujo de cookies o `getClaims()` en `lib/supabase/proxy.ts` puede desloguear usuarios al azar.
 - Zod 4 (v4.6.2): `.default()` se ejecuta también dentro de `.optional()` y sobre `.partial()`. Si omitís un campo del payload para "no pisarlo", el default igual lo rellena en el parse. Para excluir una columna de un update, usá `.omit({ campo: true })` en el schema.
 - En los `DropdownMenu` de Base UI, `DropdownMenuLabel` y `DropdownMenuRadioGroup` deben ir dentro de un `DropdownMenuGroup` (o el label dentro del propio `DropdownMenuRadioGroup`); sin ese padre falta `MenuGroupContext` y la app se detiene con el error en runtime "MenuGroupContext is missing".
+- `revalidatePath(ruta, "page")` en Next 16 se etiqueta contra `definition.page`, que **incluye el route group** (p. ej. `/(budget)/edit/[id]/page`); la URL visible no sirve. Verificado en `node_modules/next/dist/build/templates/app-page-runtime.js` + `shared/lib/router/utils/app-paths.js`. Aun así, cualquier `revalidatePath` desde una server action setea `pathWasRevalidated` y el cliente refresca la ruta actual aunque la etiqueta no matchee.
+- `router.refresh()` (Next 16) re-renderiza los Server Components **sin** perder el `useState` de los client components (ver `docs/.../use-router.md`): sirve para refrescar props del servidor —como el catálogo del sidebar— sin reiniciar `useBudget` ni perder ediciones pendientes del editor.
+- No existe ningún sistema de toasts/avisos en el proyecto; el "estado de guardado" más cercano es `SaveStatusIndicator` (`status-indicator.tsx`), que lee el `status` del contexto y no sirve para avisos efímeros de otras acciones.
 
 ## 7. Notas del historial
 
@@ -143,3 +155,5 @@ Una línea por tarea terminada: `YYYY-MM-DD · T-XXX · resultado`.
 - 2026-09-29 · — · Creación de `AGENTS.md` y `MEMORY.md` iniciales.
 - 2026-09-29 · T-001 · `changeSentStatus` + `ChangeStatusMenu` en dashboard y editor; autoguardado deja de escribir `sent_status`. `tsc`, `lint` (línea base) y `build` en verde.
 - 2026-09-29 · T-002 · Auditoría en solo lectura de las 5 pestañas del sidebar (tablas por campo, `useBudget`, `BudgetSchema` vs columnas, `/profile`, dominios, checklist) + registro de las decisiones de diseño; cableado derivado a T-010–T-018. Cero cambios de código.
+- 2026-09-30 · T-010 · `ServiceCard` cableada (Usar/Guardar/Eliminar) con resultado tipado, confirmación de borrado y `router.refresh()` en `useTransition`; `revalidatePath` → `/(budget)/edit/[id]`. `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador.
+- 2026-09-30 · — · Se creó T-019 (presupuestos emitidos de solo lectura en el editor, prioridad alta).

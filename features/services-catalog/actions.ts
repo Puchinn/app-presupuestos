@@ -2,8 +2,16 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { Service, ServiceSchema } from "./types";
+import { Service, ServiceSchema, ServiceActionResult } from "./types";
 import { TextItem } from "../text-item/types";
+
+// La ruta lleva el route group porque revalidatePath se etiqueta contra
+// `definition.page` (que conserva `(budget)`), no contra la URL visible.
+const EDIT_PATH = "/(budget)/edit/[id]";
+
+function revalidateEditor() {
+  revalidatePath(EDIT_PATH, "page");
+}
 
 export async function getServices(): Promise<Service[]> {
   const supabase = await createClient();
@@ -73,19 +81,23 @@ export async function saveService(service: Partial<Service>) {
     throw new Error("Error al guardar el servicio: " + error.message);
   }
 
-  revalidatePath("/edit");
+  revalidateEditor();
   return ServiceSchema.parse(data);
 }
 
-export async function updateService(service: Partial<Service>) {
-  if (!service.id) return;
+export async function updateService(
+  service: Partial<Service>,
+): Promise<ServiceActionResult> {
+  if (!service.id) {
+    return { ok: false, error: "No se indicó el servicio a actualizar." };
+  }
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("Usuario no autenticado");
+  if (!user) return { ok: false, error: "Usuario no autenticado." };
 
   const updatePayload: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -97,41 +109,59 @@ export async function updateService(service: Partial<Service>) {
     updatePayload.quantity = Number(service.quantity);
   if (service.details !== undefined) updatePayload.details = service.details;
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("services")
     .update(updatePayload)
     .eq("id", service.id)
     .eq("user_id", user.id)
-    .select("*")
+    .select("id")
     .single();
 
   if (error) {
-    throw new Error("Error al actualizar el servicio: " + error.message);
+    return {
+      ok: false,
+      error: "No se pudo actualizar el servicio: " + error.message,
+    };
   }
 
-  revalidatePath("/edit");
-  return data as Service;
+  revalidateEditor();
+  return { ok: true };
 }
 
-export async function deleteService(service: Service | { id: string }) {
-  if (!service.id) return;
+export async function deleteService(
+  service: Service | { id: string },
+): Promise<ServiceActionResult> {
+  if (!service.id) {
+    return { ok: false, error: "No se indicó el servicio a eliminar." };
+  }
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("Usuario no autenticado");
+  if (!user) return { ok: false, error: "Usuario no autenticado." };
 
-  const { error } = await supabase
+  // .select() es necesario: sin él Supabase no devuelve las filas afectadas y
+  // un delete que no matcheó nada parecería exitoso.
+  const { data, error } = await supabase
     .from("services")
     .delete()
     .eq("id", service.id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id");
 
   if (error) {
-    throw new Error("Error al eliminar el servicio: " + error.message);
+    return {
+      ok: false,
+      error: "No se pudo eliminar el servicio: " + error.message,
+    };
   }
 
-  revalidatePath("/edit");
+  if (!data || data.length === 0) {
+    return { ok: false, error: "El servicio ya no está en tu catálogo." };
+  }
+
+  revalidateEditor();
+  return { ok: true };
 }

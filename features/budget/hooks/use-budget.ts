@@ -134,7 +134,9 @@ export function useBudget(initialBudget?: Budget) {
     setBudgetState((p) => ({ ...p, sent_status: sentStatus }));
   };
 
-  const addService = (service: Service) => {
+  // El id lo genera acá: "Usar" del catálogo arma el ítem sin id para no
+  // arrastrar el id del catálogo al presupuesto.
+  const addService = (service: Omit<Service, "id">) => {
     setServices((prev) => [
       ...prev,
       {

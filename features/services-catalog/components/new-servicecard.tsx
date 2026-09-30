@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  AlertCircle,
+  Check,
   ChevronDown,
   CheckCircle2,
   Pencil,
@@ -7,14 +9,13 @@ import {
   Trash2,
   Package,
 } from "lucide-react";
+import { DeleteAlertDialog } from "@/components/ui/delete-alert-dialog";
+import type { Service } from "@/features/services-catalog/types";
 
-export interface Service {
-  id?: string;
-  name: string;
-  details: string[];
-  quantity: number;
-  price: number;
-}
+/** Lo que deben devolver onUpdate/onDelete: el resultado tipado de la action. */
+type CallbackResult = { ok: boolean; error?: string };
+
+type Notice = { type: "ok" | "error"; text: string };
 
 export interface ServiceCardProps {
   service: Service;
@@ -22,9 +23,13 @@ export interface ServiceCardProps {
   /** Callback opcional al hacer clic en "Usar" (o se conecta con tu Contexto) */
   onAdd?: (service: Service) => void;
   /** Callback opcional para actualizar (o se conecta con tus server actions) */
-  onUpdate?: (service: Service) => Promise<void> | void;
+  onUpdate?: (
+    service: Service,
+  ) => Promise<CallbackResult | void> | CallbackResult | void;
   /** Callback opcional para eliminar (o se conecta con tus server actions) */
-  onDelete?: (service: Service) => Promise<void> | void;
+  onDelete?: (
+    service: Service,
+  ) => Promise<CallbackResult | void> | CallbackResult | void;
 }
 
 export function ServiceCard({
@@ -39,6 +44,22 @@ export function ServiceCard({
   const [open, setOpen] = useState(defaultOpen);
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showNotice = (type: Notice["type"], text: string) => {
+    setNotice({ type, text });
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), 3000);
+  };
+
+  useEffect(
+    () => () => {
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    },
+    [],
+  );
 
   // Formateador local acorde a las normas de diseño en ARS / moneda
   const formatCurrency = (amount: number) => {
@@ -51,6 +72,8 @@ export function ServiceCard({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!onUpdate) return;
+
     setIsSubmitting(true);
 
     try {
@@ -69,30 +92,32 @@ export function ServiceCard({
         details: detailsArray,
       };
 
-      if (onUpdate) {
-        await onUpdate(updatedService);
+      const result = await onUpdate(updatedService);
+      if (result && !result.ok) {
+        showNotice("error", result.error ?? "No se pudo guardar el servicio.");
+        return;
       }
+
       setIsEditing(false);
+      showNotice("ok", "Servicio actualizado.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (onDelete) {
-      setIsSubmitting(true);
-      try {
-        await onDelete(service);
-      } finally {
-        setIsSubmitting(false);
-      }
+    if (!onDelete) return;
+
+    const result = await onDelete(service);
+    if (result && !result.ok) {
+      showNotice("error", result.error ?? "No se pudo eliminar el servicio.");
     }
   };
 
   const handleUse = () => {
-    if (onAdd) {
-      onAdd(service);
-    }
+    if (!onAdd) return;
+    onAdd(service);
+    showNotice("ok", "Agregado al presupuesto.");
   };
 
   return (
@@ -132,6 +157,21 @@ export function ServiceCard({
       {/* Contenido Desplegable */}
       {open && (
         <div className="p-4 space-y-4">
+          {notice && (
+            <p
+              role="status"
+              className={`flex items-start gap-1.5 text-xs font-semibold leading-snug ${
+                notice.type === "error" ? "text-rose-600" : "text-emerald-600"
+              }`}
+            >
+              {notice.type === "error" ? (
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
+              ) : (
+                <Check className="w-3.5 h-3.5 shrink-0 mt-px" />
+              )}
+              <span>{notice.text}</span>
+            </p>
+          )}
           {!isEditing ? (
             // ==================== VISTA NORMAL ====================
             <>
@@ -294,7 +334,7 @@ export function ServiceCard({
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                 <button
                   type="button"
-                  onClick={handleDelete}
+                  onClick={() => setConfirmDelete(true)}
                   disabled={isSubmitting}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 hover:border-rose-300 focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:outline-none transition-colors cursor-pointer disabled:opacity-60"
                 >
@@ -325,6 +365,14 @@ export function ServiceCard({
           )}
         </div>
       )}
+
+      <DeleteAlertDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="¿Eliminar este servicio?"
+        description={`Se quitará "${name}" de tu catálogo de servicios.`}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
