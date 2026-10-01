@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowLeft, Eye, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { SaveStatusIndicator } from "@/features/budget/components/status-indicator";
 import { ChangeStatusMenu } from "@/features/budget/components/change-status-menu";
+import { PdfActions } from "@/features/budget/components/pdf-actions";
 import { useBudgetContext } from "@/features/budget/context/context-provider";
 
 export function HeaderStatus() {
@@ -50,15 +51,7 @@ export function HeaderStatus() {
 
         <SaveStatusIndicator />
 
-        <Link
-          id="editor-preview-btn"
-          type="button"
-          href={"#"}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none transition-colors"
-        >
-          <Eye className="w-4 h-4 text-slate-500" aria-hidden="true" />
-          <span>Vista previa</span>
-        </Link>
+        <PdfActions budget={budget} />
 
         <button
           id="editor-emit-primary-btn"

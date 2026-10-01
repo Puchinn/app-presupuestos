@@ -3,7 +3,7 @@
 > Este archivo lo lee y lo mantiene el agente. `AGENTS.md` tiene las reglas estables; aquí va lo que cambia.
 > Si hay contradicción entre ambos, manda `AGENTS.md`. Ver "Protocolo de MEMORY.md" allí.
 
-Última actualización: 2026-09-30 (T-012 hecha: pestaña Cliente con selector y alta; decisiones de migración de clientes revertidas; mantenida por el agente)
+Última actualización: 2026-09-30 (T-003 + T-004 + T-005 hechas: documento PDF, vista previa y descarga; mantenida por el agente)
 
 ## 1. Estado actual
 
@@ -15,7 +15,7 @@
 - `/new-budget`: crear presupuestos.
 - `/edit/[id]`: editar presupuestos con autoguardado (`useBudget`, debounce 800 ms). Incluye un sidebar de 5 pestañas: Servicios, Textos, Configuración y Cliente están cableadas (T-010, T-013a, T-013b, T-015, T-012); Info es solo lectura con checklist (falta T-016).
 - Hay dos campos de estado: `status` (`draft | issued`, fiscal, con acción "Emitir") y `sent_status` (`draft | pending | sent | approved | rejected`, comercial). `sent_status` se muestra (badge, filtros del dashboard, banner) y **ya se puede cambiar desde la UI** (menú en la tarjeta del dashboard y en el header del editor).
-- `@react-pdf/renderer` está instalado pero **no se usa en ningún lado**.
+- `@react-pdf/renderer` (4.9.0) ya **se usa** en el editor: documento `features/budget/components/budget-pdf.tsx` + botones "Vista previa"/descarga en `pdf-actions.tsx` (T-003/T-004/T-005). Se importa solo con `import()` dinámico dentro de los handlers: nada lo carga en el render del servidor. **Probado a mano por el dueño 2026-09-30 (OK).**
 
 **Fuera de alcance por ahora**
 
@@ -40,12 +40,6 @@ Las tareas se hacen de a una y con plan aprobado. El orden sugerido es de arriba
 
 ### Pendientes
 
-- **T-003** · Generar PDF con `@react-pdf/renderer` (documento reutilizable) · pendiente
-  Componente del documento en `features/budget/components/`. Debe reutilizarse en vista previa, descarga y vista pública.
-- **T-004** · Vista previa del PDF dentro de la app · pendiente
-  Depende de T-003.
-- **T-005** · Descargar el PDF · pendiente
-  Depende de T-003.
 - **T-006** · Vista pública de un presupuesto para el cliente (sin login) · pendiente
   Requiere decidir mecanismo de acceso y ajustar `proxy.ts` y RLS. Necesita migración: pedir aprobación. Ver Preguntas abiertas.
 - **T-007** · Versión pública sin login que usa `localStorage` · pendiente
@@ -68,6 +62,17 @@ Las tareas se hacen de a una y con plan aprobado. El orden sugerido es de arriba
 _(ninguna)_
 
 ### Hechas
+
+- **T-003 + T-004 + T-005** · Documento PDF, vista previa y descarga · hechas 2026-09-30
+  **Referencia de diseño:** `docs/reference/budget-pdf.txt` y `docs/reference/preview.txt` — `.txt` **solo de referencia** (usan la API vieja `@/types/budget`); no importarlos y no consultar el historial de git.
+  Plan aprobado 2026-09-30:
+  - **Objetivo:** componente único `<BudgetPdf budget={budget}/>` (recibe **solo** el budget, no el perfil; listo para reusarse en T-006) + "Vista previa" por impresión + descarga, cableados en `header-status.tsx`.
+  - **Archivos:** crear `features/budget/components/budget-pdf.tsx` (documento + `pdfFileName`) y `features/budget/components/pdf-actions.tsx` (ambos botones y flujos); modificar `features/budget/components/header-status.tsx`. Sin migraciones, sin dependencias nuevas, sin tocar `types.ts`, `actions.ts`, `use-budget.ts` ni `proxy.ts`.
+  - **Criterios del dueño:** 4 toggles de `settings`; vista previa con el **estado en memoria** del editor usando la **función de `preview.txt`** (blob → iframe oculto → `contentWindow.print()` → limpieza a los 5 s); descarga con **un solo icono** + tooltip **"Descargar archivo"** vía `pdf().toBlob()` (**sin `PDFDownloadLink`**); nombre `Presupuesto-<código>-<cliente>.pdf` saneado; **solo ARS** desde `total_price_services`; marca de agua **"BORRADOR"** si `status !== "issued"`; `@react-pdf/renderer` se carga solo con `import()` dinámico dentro de los handlers (nunca en SSR).
+  - **Decisiones del dueño:** (1) vista previa tal cual `preview.txt` (ventana de impresión, no diálogo en la app); (2) fallbacks: código vacío → `borrador`, cliente vacío → `sin-cliente`; (3) formatos de imagen → **solo deuda anotada**; (4) **sin script de verificación**: el dueño revisa el PDF a mano; (5) el bug del doble prefijo de `logo_url` **solo se anota**.
+  - **Fuera de alcance:** datos bancarios/razón social/CUIT (no existen en `budget`, T-017), IVA/moneda/descuento (T-014), restricción de formatos de imagen, arreglo del doble prefijo.
+  Hecho 2026-09-30: `budget-pdf.tsx` adaptado de la referencia (tipos de `features/budget/types`, total = `formatARS(total_price_services)` + "Pesos Argentinos (ARS)", fechas con guard, filas de servicios sin filtrar como en el documento, cajas de condiciones/detalle solo con toggle + contenido, fila de contacto solo si hay datos, marca de agua `fixed` rotada -45° con `opacity: 0.07`, resolución de `logo_url`/`footer_img_url` path-vs-URL, `pdfFileName` con slug sin acentos ni símbolos); `pdf-actions.tsx` con estados de carga (deshabilita ambos botones), error efímero en español de 3 s, y `header-status.tsx` reemplazado el `Link href="#"` por `<PdfActions budget={budget}/>` (conserva `id="editor-preview-btn"`, nuevo `editor-download-btn`).
+  Verificado con `tsc --noEmit`, `lint` (línea base, sin errores ni warnings nuevos) y `build` (Turbopack compila el build browser de react-pdf). **Probado a mano por el dueño 2026-09-30: OK — vista previa (impresión), descarga con nombre saneado y tooltip funcionan.**
 
 - **T-001** · Cambiar el `sent_status` de un presupuesto · hecha 2026-09-29
   Nueva server action `changeSentStatus` (resultado tipado, valida con `SentStatusSchema`, filtra por `id` y `user_id`) + componente `ChangeStatusMenu` (badge clickeable con menú de estados) en `budget-card` (dashboard) y `header-status` (editor). `updateBudget` ahora parsea con `BudgetSchema.omit({ sent_status: true })` y el autoguardado excluye `sent_status` del payload. No toca el `status` fiscal.
@@ -186,6 +191,12 @@ Formato: fecha · decisión · porqué.
 - 2026-09-30 · T-012: el alta es un botón **"Guardar como cliente"** (sin formulario): deshabilitado si el nombre está vacío o si ya hay vínculo con ese nombre; `createClient` compara el nombre **sin distinguir mayúsculas ni espacios sobrantes** y vincula el existente en vez de duplicar; `user_id` sale de la sesión. · Evita duplicados por diferencias de tipeo.
 - 2026-09-30 · T-012: "Quitar vínculo" deja `client_id: ""` **sin tocar** `client_name`. · En el estado de UI el vacío es `""` (`UIBudgetSchema`), que `BudgetSchema` convierte a `null` al guardar; así el nombre escrito a mano se conserva.
 - 2026-09-30 · T-012: `client_name` es siempre editable y **no** modifica el cliente guardado en `clients`. · El presupuesto guarda un nombre propio (snapshot); editar la ficha del cliente queda para después.
+- 2026-09-30 · T-003/004/005: `@react-pdf/renderer` y `budget-pdf.tsx` se importan **solo con `import()` dinámico dentro de los handlers** de `pdf-actions.tsx`, nunca en un import estático. · Evita que SSR/prerender carguen el paquete (build node con `fs`) y deja react-pdf en un chunk bajo demanda con el build `browser`; `next/dynamic` con `ssr: false` sólo serviría dentro de un Client Component (doc de Next 16).
+- 2026-09-30 · T-003: el total del PDF sale de **`total_price_services`** con `formatARS()` + subtítulo fijo "Pesos Argentinos (ARS)"; se descarta la suma propia de la referencia. · Criterio del dueño: solo ARS, y así el PDF coincide con el total del editor (que recalcula en memoria).
+- 2026-09-30 · T-003: las cajas de condiciones/detalle se muestran **si el toggle está prendido y el texto no está vacío**. · El toggle manda ("qué se muestra"); imprimir una caja vacía no aporta. Difiere de `budget-edit.tsx`, que pinta la caja aunque esté vacía.
+- 2026-09-30 · T-003: el PDF resuelve `logo_url`/`footer_img_url` con un helper que detecta si el valor es URL completa o path. · La DB tiene las dos formas (ver bug del doble prefijo en §5); un solo código no puede romper ninguna.
+- 2026-09-30 · T-004: la vista previa es **la ventana de impresión del navegador** (iframe oculto + `print()`, tal cual `preview.txt`), no un diálogo dentro de la app. · Decisión explícita del dueño.
+- 2026-09-30 · T-005: nombre de archivo `Presupuesto-<código>-<cliente>.pdf` saneado (sin acentos, `[^A-Za-z0-9]` → `-`); fallbacks código → `borrador`, cliente → `sin-cliente`. · Decisión del dueño; el mismo nombre se usa como `title` del `Document`.
 
 ## 5. Bugs y deuda técnica
 
@@ -193,13 +204,15 @@ Formato: fecha · decisión · porqué.
 - Server actions solo hacen `throw`, sin manejo de errores en la UI (cubierto por T-008/T-009).
 - `updateBudget` sigue haciendo `throw` con un mensaje placeholder ("aaaca capo") y no filtra por `user_id` en el update (hoy lo cubre RLS, pero conviene filtrar igual como las demás acciones). T-001 ya cambió el parse a `BudgetSchema.omit({ sent_status: true })`; lo demás lo cubre T-008.
 - Carpeta raíz `actions/`: **ya no existe** (AGENTS.md advierte no recrearla). ~~`getUserTexts` mal ubicado y `text_items` incompleto~~ (resuelto en T-018, 2026-09-30).
-- UI muerta sin handler (auditoría T-002): botón "Emitir presupuesto" y "Vista previa" (`header-status.tsx`), ~~"Usar"/"Guardar"/"Eliminar" de `ServiceCard`~~ (cableados en T-010), los 4 inputs de la pestaña Cliente menos `client_name`, ~~los 3 campos de Textos~~ (cableados en T-013a: quedan 2, se borró el de título) y ~~los 5 de Configuración~~ (los 4 toggles cableados en T-015; los controles muertos de Configuración se borraron, diferidos a T-014), y 4 campos "Mock" + `BankSection` en `/profile`.
+- UI muerta sin handler (auditoría T-002): botón "Emitir presupuesto" (`header-status.tsx`), ~~"Vista previa" (`header-status.tsx`)~~ (cableado en T-004), ~~"Usar"/"Guardar"/"Eliminar" de `ServiceCard`~~ (cableados en T-010), los 4 inputs de la pestaña Cliente menos `client_name`, ~~los 3 campos de Textos~~ (cableados en T-013a: quedan 2, se borró el de título) y ~~los 5 de Configuración~~ (los 4 toggles cableados en T-015; los controles muertos de Configuración se borraron, diferidos a T-014), y 4 campos "Mock" + `BankSection` en `/profile`.
 - `DeleteAlertDialog` cierra el diálogo siempre que `onConfirm` resuelva, incluso si el borrado falló; el error queda visible solo como aviso efímero en la tarjeta. No se tocó el componente compartido en T-010.
 - Limitación conocida (queda fuera de T-015, anotada 2026-09-30): al apagar `show_logo_url` o `show_footer_url`, `budget-edit.tsx` oculta también el `ImageUpload`, así que no se puede cambiar la imagen sin reactivar el toggle.
 - `editBudgetInfo` acepta `status`, `sent_status`, `public_code` y `settings`: hoy ningún control abusa, pero nada lo impide (el autoguardado escribiría esas columnas).
 - Tabla `budget_items` (migración 1): **huérfana** — sin types, sin actions, sin componentes; además en `text_items` se le borró `budget_item_id` en la migración 2, así que nadie la referencia. Decidir si se usa o se elimina (borrar tabla = migración, pedir aprobación).
 - No hay tests ni CI. No agregar sin consultar.
 - `updateTextItem` (T-018) existe **sin UI**: decisión del dueño (sin edición inline de fragmentos); no es código muerto olvidado.
+- **Doble prefijo en las imágenes del editor** (anotado 2026-09-30, sin arreglar por decisión del dueño): `changeLogoUrl`/`changeFooterUrl` (`features/budget/actions.ts:313/342`) guardan la **URL pública completa**, pero `budget-edit.tsx:93/385` la pasa por `getPublicStorageUrl()` otra vez → la imagen se rompe cuando el usuario la cambia desde el editor (el path que viene del perfil sí funciona). El PDF lo esquiva con su propio helper; falta decidir si se arregla el `defaultSrc` del editor.
+- **Formatos de imagen incompatibles con el PDF** (deuda, decisión del dueño 2026-09-30: solo anotar): la bucket no valida MIME (`allowed_mime_types` comentado en `config.toml`), `image-upload.tsx` acepta `image/*` y el dropzone del perfil acepta `svg+xml`/`webp`, pero react-pdf sólo renderiza **JPG y PNG** → un logo en SVG/WebP hará fallar la vista previa y la descarga (hoy se muestra "No se pudo generar el archivo." en español).
 - `app/(budget)/loading.tsx` muestra `"loadingg"` (texto placeholder con typo). Quedó fuera de T-011 sin respuesta del dueño; arreglar de una línea cuando se toque.
 
 ## 6. Lecciones aprendidas
@@ -235,3 +248,4 @@ Una línea por tarea terminada: `YYYY-MM-DD · T-XXX · resultado`.
 - 2026-09-30 · T-013b · Biblioteca de fragmentos en la pestaña Textos (selector de destino, insert al final con `\n`, borrado con confirmación, avisos de 3 s) + feedback en los botones "Guardar" del documento. `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador.
 - 2026-09-30 · — · §2 reordenado: T-010, T-011, T-013a, T-013b, T-015 y T-018 movidas de "Pendientes" a "Hechas" (contenido intacto); nota de `actions/` en §5 corregida.
 - 2026-09-30 · T-012 · Nuevo dominio `features/clients/` (`ClientSchema` movido de `features/user`, `getClients`/`createClient` con resultado tipado) y pestaña Cliente reescrita: los 4 inputs muertos borrados, `client_name` filtra la lista, "Guardar como cliente" vincula el existente si el nombre ya existe, "Vinculado a: X" + "Quitar vínculo" (`client_id: ""`). Sin migración. `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador.
+- 2026-09-30 · T-003 + T-004 + T-005 · Documento PDF (`budget-pdf.tsx`: 4 toggles, marca de agua "BORRADOR", total ARS desde `total_price_services`, nombre saneado), vista previa por impresión (`preview.txt`) y descarga por icono con tooltip (`pdf-actions.tsx`), cableados en `header-status.tsx`; imports dinámicos de react-pdf. `tsc`, `lint` (línea base) y `build` en verde; probado a mano por el dueño 2026-09-30 (OK).
