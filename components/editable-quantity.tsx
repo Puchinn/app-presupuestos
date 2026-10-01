@@ -9,12 +9,15 @@ interface EditableQuantityProps {
   value: number
   onChange: (value: number) => void
   className?: string
+  /** Presupuesto emitido: muestra el valor sin controles de edición. */
+  disabled?: boolean
 }
 
 export function EditableQuantity({
   value,
   onChange,
   className = "",
+  disabled = false,
 }: EditableQuantityProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(value.toString())
@@ -47,6 +50,10 @@ export function EditableQuantity({
       setIsEditing(false)
       setEditValue(value.toString())
     }
+  }
+
+  if (disabled) {
+    return <span className={`tabular-nums ${className}`}>{value}</span>
   }
 
   if (isEditing) {

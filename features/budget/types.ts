@@ -85,24 +85,80 @@ export const ListBudgetSchema = z.array(UIBudgetSchema);
 
 export type Budget = z.infer<typeof BudgetSchema>;
 
-export const CheckEmpty: z.ZodType<Partial<Budget>> = z.object({
-  client_name: z.string("Sin nombre de cliente").nonempty(),
-  client_id: z
+export type Filter = SentStatus | "issued" | "all";
+
+// --- Checklist de emisión en dos niveles (T-016) ----------------------------
+// Esencial: lo que emitBudget exige en el servidor (no se puede saltar).
+// Recomendado: mejora el documento pero no bloquea la emisión; los campos con
+// toggle de `settings` apagado no se exigen ni se muestran en el checklist.
+
+export type ChecklistIssue = { key: string; message: string };
+export type ChecklistResult = {
+  essential: ChecklistIssue[];
+  recommended: ChecklistIssue[];
+};
+
+export const EmitEssentialSchema = z.object({
+  client_name: z
     .string()
-    .nonempty(
-      "El documento no esta asociado a un ID de cliente, asocialo seleccionado un cliente de la lista de clientes.",
-    ),
-  dates: z.object({
-    sent: z.string("Sin fecha de emision").nonempty(),
-    estimated: z.string("Sin fecha estimada").nonempty(),
-  }),
-  services: z.array(BudgetServiceItemSchema).nonempty("Sin servicios"),
-  logo_url: z.string("No hay url del logo").nonempty(),
-  conditions: z.string("Sin condiciones y servicios").nonempty(),
-  budget_details: z.string("Sin detalles").nonempty(),
+    .trim()
+    .min(1, "el nombre del cliente (razón social) está vacío"),
+  services: z
+    .array(BudgetServiceItemSchema)
+    .min(1, "el presupuesto no tiene servicios"),
 });
 
-export type Filter = SentStatus | "issued" | "all";
+const RecommendedSchema = z.object({
+  dates: z.object({
+    sent: z.string().min(1, "falta la fecha de emisión"),
+    estimated: z.string().min(1, "falta la fecha de plazo estimada"),
+  }),
+  logo_url: z.string().min(1, "falta el logo de la empresa"),
+  conditions: z.string().min(1, "faltan las condiciones de pago"),
+  budget_details: z.string().min(1, "falta el detalle del presupuesto"),
+});
+
+// Claves del checklist recomendado que solo se exigen con su toggle prendido.
+const OPTIONAL_TOGGLES: Record<string, keyof BudgetSettings> = {
+  logo_url: "show_logo_url",
+  conditions: "show_budget_conditions",
+  budget_details: "show_budget_details",
+};
+
+const toIssues = (error: z.ZodError): ChecklistIssue[] =>
+  error.issues.map((issue) => ({
+    key: issue.path.join("."),
+    message: issue.message,
+  }));
+
+/**
+ * Devuelve los problemas del presupuesto separados por nivel.
+ * `settings` manda: si el toggle de un campo está apagado, el campo no se exige.
+ */
+export function runChecklist(
+  data: {
+    client_name: string;
+    services: Budget["services"];
+    dates: Budget["dates"];
+    logo_url: string;
+    conditions: string;
+    budget_details: string;
+  },
+  settings: BudgetSettings,
+): ChecklistResult {
+  const essential = EmitEssentialSchema.safeParse(data);
+  const recommended = RecommendedSchema.safeParse(data);
+
+  return {
+    essential: essential.success ? [] : toIssues(essential.error),
+    recommended: recommended.success
+      ? []
+      : toIssues(recommended.error).filter((issue) => {
+          const toggle = OPTIONAL_TOGGLES[issue.key];
+          return !toggle || settings[toggle];
+        }),
+  };
+}
 
 // Resultados tipados de las server actions del dominio (convención de AGENTS.md):
 // nunca throw, siempre { ok } | { ok: false; error } con mensaje en español.
@@ -121,4 +177,7 @@ export type BudgetUrlResult =
   | { ok: false; error: string };
 export type ChangeSentStatusResult =
   | { ok: true; sent_status: SentStatus }
+  | { ok: false; error: string };
+export type EmitBudgetResult =
+  | { ok: true; public_code: string; sent_status: SentStatus }
   | { ok: false; error: string };

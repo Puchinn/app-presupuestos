@@ -30,6 +30,8 @@ export interface ServiceCardProps {
   onDelete?: (
     service: Service,
   ) => Promise<CallbackResult | void> | CallbackResult | void;
+  /** Presupuesto emitido: oculta las acciones (Usar/Editar) de la tarjeta. */
+  readOnly?: boolean;
 }
 
 export function ServiceCard({
@@ -38,6 +40,7 @@ export function ServiceCard({
   onAdd,
   onUpdate,
   onDelete,
+  readOnly = false,
 }: ServiceCardProps) {
   const { name, details, quantity, price } = service;
 
@@ -226,25 +229,27 @@ export function ServiceCard({
               </div>
 
               {/* Footer de Acciones */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs hover:border-slate-400 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none transition-colors cursor-pointer"
-                >
-                  <Pencil className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Editar</span>
-                </button>
+              {!readOnly && (
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs hover:border-slate-400 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none transition-colors cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Editar</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleUse}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold shadow-xs hover:shadow focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:outline-none transition-all cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Usar</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleUse}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold shadow-xs hover:shadow focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:outline-none transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Usar</span>
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             // ==================== VISTA DE EDICIÓN ====================

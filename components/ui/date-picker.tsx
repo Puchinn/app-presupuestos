@@ -15,10 +15,20 @@ import {
 interface Props {
   date: string;
   setDate: React.Dispatch<React.SetStateAction<Date>> | undefined;
+  /** Presupuesto emitido: muestra la fecha sin abrir el calendario. */
+  disabled?: boolean;
 }
 
-export function DatePicker({ date, setDate }: Props) {
+export function DatePicker({ date, setDate, disabled = false }: Props) {
   const validData = date.length > 0 ? new Date(date) : new Date();
+
+  if (disabled) {
+    return (
+      <span className="text-sm text-white/80">
+        {date && typeof date !== "object" ? format(date, "PP") : "Sin fecha"}
+      </span>
+    );
+  }
 
   return (
     <Popover>

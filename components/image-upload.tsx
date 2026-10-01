@@ -8,6 +8,8 @@ interface Props {
   defaultSrc: string;
   onUpload: (file: File) => Promise<void>;
   onDeleteImage?: VoidFunction;
+  /** Presupuesto emitido: muestra la imagen sin permitir cambiarla ni borrarla. */
+  disabled?: boolean;
 }
 
 export function ImageUpload({
@@ -15,6 +17,7 @@ export function ImageUpload({
   size,
   onUpload,
   onDeleteImage,
+  disabled = false,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -33,9 +36,11 @@ export function ImageUpload({
     <div
       className={`${defaultSrc.length ? "" : "border-dashed border-balance border"} rounded-md  relative group  object-cover`}
     >
-      <div className="absolute bg-white rounded-md group-hover:text-black z-30 right-0 top-0">
-        <X onClick={onDeleteImage} className="cursor-pointer text-gray-500" />
-      </div>
+      {!disabled && (
+        <div className="absolute bg-white rounded-md group-hover:text-black z-30 right-0 top-0">
+          <X onClick={onDeleteImage} className="cursor-pointer text-gray-500" />
+        </div>
+      )}
       {loading && (
         <div className="w-full h-full rounded-md flex flex-col items-center justify-center rounded-full bg-white/80 p-10 absolute z-10">
           <Loader2 className="text-black/75 w-20 h-20 mb-1 animate-spin" />
@@ -65,17 +70,19 @@ export function ImageUpload({
         </div>
       )}
 
-      <label className="absolute rounded-md opacity-0 group-hover:opacity-100 bg-white/90 text-black flex justify-center items-center inset-0 mx-auto group">
-        <p>Cambiar ↑</p>
-        <input
-          ref={fileRef}
-          id="fileInput"
-          hidden
-          onChange={onFileChange}
-          type="file"
-          accept="image/*"
-        />
-      </label>
+      {!disabled && (
+        <label className="absolute rounded-md opacity-0 group-hover:opacity-100 bg-white/90 text-black flex justify-center items-center inset-0 mx-auto group">
+          <p>Cambiar ↑</p>
+          <input
+            ref={fileRef}
+            id="fileInput"
+            hidden
+            onChange={onFileChange}
+            type="file"
+            accept="image/*"
+          />
+        </label>
+      )}
     </div>
   );
 }

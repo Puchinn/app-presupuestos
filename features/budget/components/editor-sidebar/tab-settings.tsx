@@ -14,7 +14,7 @@ const TOGGLES: { key: SettingsKey; label: string }[] = [
 ];
 
 export function TabSettings() {
-  const { budget, methods } = useBudgetContext();
+  const { budget, methods, readOnly } = useBudgetContext();
 
   return (
     <div className="space-y-3 text-xs">
@@ -42,6 +42,7 @@ export function TabSettings() {
             id={`setting-${key}`}
             checked={budget.settings[key]}
             onCheckedChange={(checked) => methods.editSetting(key, checked)}
+            disabled={readOnly}
           />
         </div>
       ))}

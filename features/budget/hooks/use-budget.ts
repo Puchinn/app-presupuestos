@@ -5,7 +5,7 @@ import { DEFAULT_BUDGET } from "@/lib/default_budget";
 import { v4 as uuid } from "uuid";
 import type { Client } from "@/features/clients/types";
 import { useDebouncedCallback } from "use-debounce";
-import { Budget, CheckEmpty, type SentStatus } from "@/features/budget/types";
+import { Budget, runChecklist, type SentStatus } from "@/features/budget/types";
 import { updateBudget } from "../actions";
 
 type BudgetInfo = Omit<Budget, "services" | "participants" | "dates">;
@@ -72,9 +72,7 @@ export function useBudget(initialBudget?: Budget) {
   };
 
   const debouncedSave = useDebouncedCallback(
-    (updatedBudget: AutoSavePayload) => {
-      saveChanges(updatedBudget);
-    },
+    (updatedBudget: AutoSavePayload) => saveChanges(updatedBudget),
     800,
   );
 
@@ -174,15 +172,46 @@ export function useBudget(initialBudget?: Budget) {
     }));
   };
 
-  const checkEmpty = () => {
-    const data = CheckEmpty.safeParse({
-      ...budgetState,
-      services,
-      participants,
-      dates,
-    });
+  // Checklist de emisión en dos niveles (T-016): esencial / recomendado.
+  // Los campos con toggle de `settings` apagado no se exigen (los filtra
+  // runChecklist).
+  const checklist = () =>
+    runChecklist(
+      {
+        client_name: budgetState.client_name,
+        services,
+        dates,
+        logo_url: budgetState.logo_url,
+        conditions: budgetState.conditions,
+        budget_details: budgetState.budget_details,
+      },
+      budgetState.settings,
+    );
 
-    return data;
+  // Cancela el autoguardado pendiente: se usa antes de emitir, para que el
+  // debounce no dispare un update que el servidor va a rechazar.
+  const cancelPendingSave = () => {
+    debouncedSave.cancel();
+  };
+
+  // Guarda el estado actual de inmediato: si la emisión falla, los cambios
+  // cancelados no se pierden.
+  const saveNow = () => {
+    debouncedSave.cancel();
+    return saveChanges(
+      toAutoSavePayload(
+        budgetState,
+        services,
+        participants,
+        dates,
+        total_price_services,
+      ),
+    );
+  };
+
+  // Se llama solo después de que emitBudget devuelve ok: true.
+  const setIssued = (public_code: string, sent_status: SentStatus) => {
+    setBudgetState((p) => ({ ...p, status: "issued", public_code, sent_status }));
   };
 
   const selectClient = (client: Client) => {
@@ -204,6 +233,14 @@ export function useBudget(initialBudget?: Budget) {
     // 1. Ignorar el render inicial
     if (firstRender.current) {
       firstRender.current = false;
+      return;
+    }
+
+    // Un presupuesto emitido es de solo lectura: la UI está bloqueada y el
+    // servidor rechaza cualquier escritura, así que el autoguardado se apaga
+    // (y cancela lo que quedara pendiente de antes de emitir).
+    if (budgetState.status === "issued") {
+      debouncedSave.cancel();
       return;
     }
 
@@ -237,6 +274,8 @@ export function useBudget(initialBudget?: Budget) {
       dates,
       total_price_services,
     },
+    // status === "issued": el documento está sellado y todo debe ser lectura.
+    readOnly: budgetState.status === "issued",
     methods: {
       createBlankService,
       createBlankParticipant,
@@ -254,7 +293,10 @@ export function useBudget(initialBudget?: Budget) {
       addConditions,
       addDetailText,
       selectClient,
-      checkEmpty,
+      checklist,
+      cancelPendingSave,
+      saveNow,
+      setIssued,
     },
     status: saveStatus,
   };

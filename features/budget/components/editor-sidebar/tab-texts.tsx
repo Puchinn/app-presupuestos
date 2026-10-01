@@ -24,7 +24,7 @@ const recortar = (text: string) =>
   text.length > 60 ? `${text.slice(0, 60)}…` : text;
 
 export function TabTexts({ texts }: TabTextsProps) {
-  const { budget, methods } = useBudgetContext();
+  const { budget, methods, readOnly } = useBudgetContext();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [destino, setDestino] = useState<Destino>("conditions");
@@ -101,8 +101,9 @@ export function TabTexts({ texts }: TabTextsProps) {
           onChange={(e) =>
             methods.editBudgetInfo({ conditions: e.target.value })
           }
+          readOnly={readOnly}
           placeholder="Forma de pago, anticipos y vencimientos..."
-          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none"
+          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none read-only:cursor-not-allowed read-only:bg-slate-100"
         />
         {!budget.settings.show_budget_conditions && (
           <p className="text-[11px] text-slate-400 mt-1">
@@ -125,8 +126,9 @@ export function TabTexts({ texts }: TabTextsProps) {
           onChange={(e) =>
             methods.editBudgetInfo({ budget_details: e.target.value })
           }
+          readOnly={readOnly}
           placeholder="Aclaraciones sobre revisiones, licencias o tiempos..."
-          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none"
+          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none read-only:cursor-not-allowed read-only:bg-slate-100"
         />
         {!budget.settings.show_budget_details && (
           <p className="text-[11px] text-slate-400 mt-1">
@@ -157,11 +159,12 @@ export function TabTexts({ texts }: TabTextsProps) {
                 type="button"
                 onClick={() => setDestino(key)}
                 aria-pressed={destino === key}
-                className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold leading-tight transition-colors focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none ${
+                disabled={readOnly}
+                className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold leading-tight transition-colors focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none disabled:cursor-not-allowed ${
                   destino === key
                     ? "bg-blue-50 text-blue-800 border border-blue-200"
                     : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100"
-                }`}
+                } ${readOnly ? "opacity-60" : ""}`}
               >
                 {label}
               </button>
@@ -212,25 +215,27 @@ export function TabTexts({ texts }: TabTextsProps) {
                 <p className="text-xs text-slate-700 whitespace-pre-wrap break-words line-clamp-4">
                   {texto.content}
                 </p>
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => insertar(texto.content)}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:text-blue-800"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Insertar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setParaBorrar(texto)}
-                    title="Eliminar fragmento"
-                    aria-label="Eliminar fragmento"
-                    className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {!readOnly && (
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => insertar(texto.content)}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:text-blue-800"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Insertar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setParaBorrar(texto)}
+                      title="Eliminar fragmento"
+                      aria-label="Eliminar fragmento"
+                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

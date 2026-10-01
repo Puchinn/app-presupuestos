@@ -10,6 +10,8 @@ interface EditableFieldProps {
   className?: string;
   multiline?: boolean;
   placeholder?: string;
+  /** Presupuesto emitido: renderiza el valor sin posibilidad de editar. */
+  disabled?: boolean;
 }
 
 export function EditableField({
@@ -18,6 +20,7 @@ export function EditableField({
   className = "",
   multiline = false,
   placeholder = "Editar...",
+  disabled = false,
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -53,6 +56,12 @@ export function EditableField({
       setEditValue(value);
     }
   };
+
+  if (disabled) {
+    return (
+      <span className={`inline-block ${className}`}>{value || placeholder}</span>
+    );
+  }
 
   if (isEditing) {
     if (multiline) {

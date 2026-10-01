@@ -9,10 +9,12 @@ import type {
   BudgetResult,
   BudgetUrlResult,
   ChangeSentStatusResult,
+  EmitBudgetResult,
   SentStatus,
 } from "@/features/budget/types";
 import {
   BudgetSchema,
+  EmitEssentialSchema,
   ListBudgetSchema,
   SentStatusSchema,
   UIBudgetSchema,
@@ -162,10 +164,13 @@ export async function updateBudget(
 ): Promise<BudgetActionResult> {
   const supabase = await createClient();
 
-  // Omitimos sent_status: esa columna solo la escribe changeSentStatus.
-  // No usamos .partial() ni .optional() porque en Zod 4 el .default() del schema
-  // se sigue aplicando y rellenaría sent_status con "draft", pisando el valor real.
-  const parsed = BudgetSchema.omit({ sent_status: true }).safeParse(budget);
+  // sent_status solo lo escribe changeSentStatus y status solo emitBudget;
+  // el WHERE .eq("status", "draft") de abajo rechaza los presupuestos
+  // emitidos. Usamos omit (y no .partial()): en Zod 4 el .default() se aplica
+  // igual dentro de .optional() y rellenaría lo que quisiéramos dejar intacto.
+  const parsed = BudgetSchema.omit({ sent_status: true, status: true }).safeParse(
+    budget,
+  );
   if (!parsed.success) {
     console.error("Presupuesto inválido al guardar:", parsed.error.issues);
     return { ok: false, error: "Los datos del presupuesto no son válidos." };
@@ -183,17 +188,41 @@ export async function updateBudget(
     };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("budgets")
     .update(parsed.data)
     .eq("id", budget.id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("status", "draft")
+    .select("id");
 
   if (error) {
     console.error("Error al guardar el presupuesto:", error.message);
     return {
       ok: false,
       error: "No se pudieron guardar los cambios. Intenta de nuevo.",
+    };
+  }
+
+  if (!data || data.length === 0) {
+    // 0 filas: o está emitido o no existe/sin permiso. Distinguimos con una
+    // lectura (solo ocurre en el camino de error).
+    const { data: row } = await supabase
+      .from("budgets")
+      .select("status")
+      .eq("id", budget.id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (row?.status === "issued") {
+      return {
+        ok: false,
+        error: "Este presupuesto está emitido y no se puede modificar.",
+      };
+    }
+    return {
+      ok: false,
+      error: "No se encontró el presupuesto o no tienes permiso para modificarlo.",
     };
   }
 
@@ -281,7 +310,7 @@ export async function saveBudget(budget: Budget): Promise<BudgetActionResult> {
     };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("budgets")
     .update({
       client_id: budget.client_id || null,
@@ -295,17 +324,26 @@ export async function saveBudget(budget: Budget): Promise<BudgetActionResult> {
       contact_number: budget.contact_number,
       logo_url: budget.logo_url,
       footer_img_url: budget.footer_img_url,
-      status: budget.status,
       updated_at: new Date().toISOString(),
     })
     .eq("id", budget.id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("status", "draft")
+    .select("id");
 
   if (error) {
     console.error("Error al guardar presupuesto:", error.message);
     return {
       ok: false,
       error: "No se pudo guardar el presupuesto. Intenta de nuevo.",
+    };
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      ok: false,
+      error:
+        "Este presupuesto está emitido y no se puede modificar, o ya no existe.",
     };
   }
 
@@ -361,11 +399,21 @@ export async function deleteBudget(
 }
 
 /**
- * 🎯 DESAFÍO PARA TI:
- * Puedes enriquecer o refactorizar este flujo para usar una función Postgres RPC
- * o gestionar la secuencia de forma atómica y concurrente.
+ * Emite un presupuesto: le asigna un código de folio, lo sella como `issued`
+ * y lo pasa a `sent_status: "pending"`.
+ *
+ * - El estado fiscal se decide con la fila de la DB, nunca con el objeto que
+ *   manda el cliente.
+ * - Lo esencial (razón social + al menos un servicio) se valida acá, donde no
+ *   se puede saltar (decisión T-016).
+ * - El WHERE .eq("status", "draft") evita que dos emisiones simultáneas
+ *   pisen el mismo presupuesto (el código de folio sí podría repetirse: la
+ *   secuencia de `counters` necesita una RPC para ser atómica, deuda anotada).
  */
-export async function emitBudget(budget: Budget): Promise<BudgetResult> {
+export async function emitBudget(budget: Budget): Promise<EmitBudgetResult> {
+  if (!budget.id)
+    return { ok: false, error: "Falta el identificador del presupuesto." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -378,16 +426,62 @@ export async function emitBudget(budget: Budget): Promise<BudgetResult> {
         "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
-  if (budget.status === "issued") return { ok: true, data: budget };
 
-  // 1. Obtener perfil actual y secuencia
+  // 1. Fila real en DB (autoritativa para el estado fiscal).
+  const { data: row, error: readError } = await supabase
+    .from("budgets")
+    .select("status, public_code, sent_status")
+    .eq("id", budget.id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (readError || !row) {
+    if (readError?.code === "PGRST116") {
+      return {
+        ok: false,
+        error:
+          "No encontramos ese presupuesto. Puede que haya sido eliminado o no tengas permiso para verlo.",
+      };
+    }
+    console.error("Error al leer el presupuesto a emitir:", readError?.message);
+    return { ok: false, error: "No se pudo leer el presupuesto." };
+  }
+
+  if (row.status === "issued") {
+    // Ya emitido: idempotente, devolvemos el código existente.
+    return {
+      ok: true,
+      public_code: row.public_code,
+      sent_status: row.sent_status,
+    };
+  }
+
+  // 2. Validación esencial en el servidor.
+  const essential = EmitEssentialSchema.safeParse({
+    client_name: budget.client_name,
+    services: budget.services,
+  });
+  if (!essential.success) {
+    const faltantes = essential.error.issues.map((i) => i.message).join("; ");
+    return {
+      ok: false,
+      error: `No se puede emitir todavía: ${faltantes}.`,
+    };
+  }
+
+  // 3. Payload completo del cliente (mismo parseo que updateBudget).
+  const parsed = BudgetSchema.omit({ sent_status: true }).safeParse(budget);
+  if (!parsed.success) {
+    console.error("Presupuesto inválido al emitir:", parsed.error.issues);
+    return { ok: false, error: "Los datos del presupuesto no son válidos." };
+  }
+
+  // 4. Folio: secuencia del perfil (ver deuda de la RPC arriba).
   const profileResult = await getUser();
-  if (!profileResult.ok) return profileResult;
+  if (!profileResult.ok) return { ok: false, error: profileResult.error };
   const profile = profileResult.data;
-  const currentSequence = profile.counters?.budget_sequence ?? 0;
-  const nextSequence = currentSequence + 1;
+  const nextSequence = (profile.counters?.budget_sequence ?? 0) + 1;
 
-  // 2. Incrementar contador en el perfil
   const { error: counterError } = await supabase
     .from("profiles")
     .update({
@@ -406,32 +500,23 @@ export async function emitBudget(budget: Budget): Promise<BudgetResult> {
     };
   }
 
-  // 3. Generar código público formateado (PRE-2026-00X)
   const paddedSequence = String(nextSequence).padStart(3, "0");
   const public_code = `PRE-${new Date().getFullYear()}-${paddedSequence}`;
 
-  const updatedBudget: Budget = {
-    ...budget,
-    public_code,
-    status: "issued",
-  };
-
-  // 4. Actualizar estado del presupuesto en Supabase
-  const { error } = await supabase
+  // 5. Sellar el presupuesto: todos los campos editables + estado fiscal.
+  const { data: updated, error } = await supabase
     .from("budgets")
     .update({
+      ...parsed.data,
       public_code,
       status: "issued",
-      dates: budget.dates,
-      services: budget.services,
-      participants: budget.participants,
-      conditions: budget.conditions,
-      budget_details: budget.budget_details,
-      updated_at: new Date().toISOString(),
       sent_status: "pending",
+      updated_at: new Date().toISOString(),
     })
     .eq("id", budget.id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("status", "draft")
+    .select("id");
 
   if (error) {
     console.error("Error al emitir el presupuesto:", error.message);
@@ -441,8 +526,17 @@ export async function emitBudget(budget: Budget): Promise<BudgetResult> {
     };
   }
 
+  if (!updated || updated.length === 0) {
+    // Otro proceso lo emitió entre la lectura y el update.
+    return {
+      ok: false,
+      error: "Este presupuesto ya fue emitido o no tienes permiso para modificarlo.",
+    };
+  }
+
   revalidatePath(`/edit/${budget.id}`);
-  return { ok: true, data: updatedBudget };
+  revalidatePath("/");
+  return { ok: true, public_code, sent_status: "pending" };
 }
 
 export async function changeLogoUrl(

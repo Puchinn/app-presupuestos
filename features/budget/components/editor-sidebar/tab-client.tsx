@@ -13,7 +13,7 @@ interface TabClientProps {
 type Notice = { type: "ok" | "error"; text: string };
 
 export function TabClient({ clients }: TabClientProps) {
-  const { methods, budget } = useBudgetContext();
+  const { methods, budget, readOnly } = useBudgetContext();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
@@ -112,18 +112,21 @@ export function TabClient({ clients }: TabClientProps) {
             onChange={(e) =>
               methods.editBudgetInfo({ client_name: e.target.value })
             }
+            readOnly={readOnly}
             placeholder="Ej. Acme SRL"
-            className="min-w-0 flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none"
+            className="min-w-0 flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none read-only:cursor-not-allowed read-only:bg-slate-100"
           />
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!canSave || isSaving || isPending}
-            title={saveDisabledReason || "Guardar este nombre como cliente"}
-            className="shrink-0 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-[11px] font-bold text-white shadow-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSaving ? "Guardando..." : "Guardar como cliente"}
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave || isSaving || isPending}
+              title={saveDisabledReason || "Guardar este nombre como cliente"}
+              className="shrink-0 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-[11px] font-bold text-white shadow-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? "Guardando..." : "Guardar como cliente"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -151,14 +154,16 @@ export function TabClient({ clients }: TabClientProps) {
               {linkedClient ? linkedClient.name : typedName || "este cliente"}
             </strong>
           </span>
-          <button
-            type="button"
-            onClick={handleUnlink}
-            className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-blue-300 bg-white text-[11px] font-bold text-blue-800 hover:bg-blue-100 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none"
-          >
-            <X className="w-3 h-3" aria-hidden="true" />
-            Quitar vínculo
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={handleUnlink}
+              className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-blue-300 bg-white text-[11px] font-bold text-blue-800 hover:bg-blue-100 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none"
+            >
+              <X className="w-3 h-3" aria-hidden="true" />
+              Quitar vínculo
+            </button>
+          )}
         </div>
       )}
 
@@ -229,7 +234,7 @@ export function TabClient({ clients }: TabClientProps) {
                 <button
                   type="button"
                   onClick={() => handleSelect(client)}
-                  disabled={isLinked}
+                  disabled={isLinked || readOnly}
                   className="shrink-0 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-[11px] font-bold text-white shadow-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLinked ? "Vinculado" : "Elegir"}

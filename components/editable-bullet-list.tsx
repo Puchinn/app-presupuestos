@@ -8,9 +8,11 @@ import { Plus, X } from "lucide-react"
 interface EditableBulletListProps {
   items: string[]
   onChange: (items: string[]) => void
+  /** Presupuesto emitido: muestra la lista sin edición ni borrado. */
+  disabled?: boolean
 }
 
-export function EditableBulletList({ items, onChange }: EditableBulletListProps) {
+export function EditableBulletList({ items, onChange, disabled = false }: EditableBulletListProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editValue, setEditValue] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
@@ -86,6 +88,22 @@ export function EditableBulletList({ items, onChange }: EditableBulletListProps)
   const removeItem = (index: number) => {
     const newItems = items.filter((_, i) => i !== index)
     onChange(newItems)
+  }
+
+  if (disabled) {
+    return (
+      <ul className="space-y-1.5">
+        {items.map((item, index) => (
+          <li
+            key={index}
+            className="flex items-start gap-2.5 text-sm text-muted-foreground"
+          >
+            <span className="mt-[8px] h-1 w-1 rounded-full bg-muted-foreground/50 shrink-0" />
+            <span className="flex-1">{item}</span>
+          </li>
+        ))}
+      </ul>
+    )
   }
 
   return (

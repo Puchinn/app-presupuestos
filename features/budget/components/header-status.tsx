@@ -1,14 +1,35 @@
 "use client";
 
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertCircle, ArrowLeft, Check, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { SaveStatusIndicator } from "@/features/budget/components/status-indicator";
 import { ChangeStatusMenu } from "@/features/budget/components/change-status-menu";
 import { PdfActions } from "@/features/budget/components/pdf-actions";
+import { EmitConfirmDialog } from "@/features/budget/components/emit-confirm-dialog";
 import { useBudgetContext } from "@/features/budget/context/context-provider";
 
 export function HeaderStatus() {
-  const { budget, methods } = useBudgetContext();
+  const { budget, methods, readOnly } = useBudgetContext();
+  const [showEmitDialog, setShowEmitDialog] = useState(false);
+  const [notice, setNotice] = useState<{
+    type: "ok" | "error";
+    text: string;
+  } | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    },
+    [],
+  );
+
+  const showNotice = (type: "ok" | "error", text: string) => {
+    setNotice({ type, text });
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), 5000);
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4 sticky top-20 z-20">
@@ -40,7 +61,7 @@ export function HeaderStatus() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+      <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
         <ChangeStatusMenu
           budgetId={budget.id}
           current={budget.sent_status}
@@ -53,16 +74,50 @@ export function HeaderStatus() {
 
         <PdfActions budget={budget} />
 
-        <button
-          id="editor-emit-primary-btn"
-          type="button"
-          // onClick={() => setShowEmitModal(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold shadow-md hover:shadow-lg focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:outline-none transition-all cursor-pointer"
-        >
-          <ShieldCheck className="w-4 h-4 text-blue-200" aria-hidden="true" />
-          <span>Emitir presupuesto</span>
-        </button>
+        {readOnly ? (
+          <span
+            id="editor-issued-badge"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+            <span>Emitido</span>
+          </span>
+        ) : (
+          <button
+            id="editor-emit-primary-btn"
+            type="button"
+            onClick={() => setShowEmitDialog(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold shadow-md hover:shadow-lg focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:outline-none transition-all cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4 text-blue-200" aria-hidden="true" />
+            <span>Emitir presupuesto</span>
+          </button>
+        )}
+
+        {notice && (
+          <p
+            role="status"
+            className={`w-full md:w-auto flex items-start gap-1.5 text-[11px] font-semibold leading-snug ${
+              notice.type === "error" ? "text-rose-600" : "text-emerald-600"
+            }`}
+          >
+            {notice.type === "error" ? (
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" aria-hidden="true" />
+            ) : (
+              <Check className="w-3.5 h-3.5 shrink-0 mt-px" aria-hidden="true" />
+            )}
+            <span>{notice.text}</span>
+          </p>
+        )}
       </div>
+
+      <EmitConfirmDialog
+        open={showEmitDialog}
+        onOpenChange={setShowEmitDialog}
+        onEmitted={(public_code) =>
+          showNotice("ok", `Presupuesto emitido con el código ${public_code}.`)
+        }
+      />
     </div>
   );
 }

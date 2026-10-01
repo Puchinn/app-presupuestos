@@ -18,7 +18,7 @@ interface TabServicesProps {
 }
 
 export function TabServices({ services }: TabServicesProps) {
-  const { methods } = useBudgetContext();
+  const { methods, readOnly } = useBudgetContext();
   const router = useRouter();
   // La lista vive solo en la prop del servidor: así "Guardar este servicio"
   // del documento (que agrega al catálogo con el sidebar abierto) la mantiene
@@ -56,18 +56,22 @@ export function TabServices({ services }: TabServicesProps) {
         <span className="text-xs font-bold text-slate-800">
           Catálogo de servicios AR
         </span>
-        <button
-          type="button"
-          onClick={() => methods.createBlankService()}
-          className="text-xs text-blue-700 hover:text-blue-800 font-semibold"
-        >
-          + Ítem vacío
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => methods.createBlankService()}
+            className="text-xs text-blue-700 hover:text-blue-800 font-semibold"
+          >
+            + Ítem vacío
+          </button>
+        )}
       </div>
-      <p className="text-[11px] text-slate-500">
-        Hacé clic en cualquier paquete para insertarlo de inmediato en tu
-        presupuesto:
-      </p>
+      {!readOnly && (
+        <p className="text-[11px] text-slate-500">
+          Hacé clic en cualquier paquete para insertarlo de inmediato en tu
+          presupuesto:
+        </p>
+      )}
 
       {/* Estado de error: `getServices` distingue fallo de lista vacía */}
       {!services.ok && (
@@ -112,6 +116,7 @@ export function TabServices({ services }: TabServicesProps) {
               onAdd={handleUse}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
+              readOnly={readOnly}
             />
           ))}
         </div>

@@ -8,9 +8,11 @@ interface EditablePriceProps {
   value: number
   onChange: (value: number) => void
   className?: string
+  /** Presupuesto emitido: muestra el precio sin posibilidad de editar. */
+  disabled?: boolean
 }
 
-export function EditablePrice({ value, onChange, className = "" }: EditablePriceProps) {
+export function EditablePrice({ value, onChange, className = "", disabled = false }: EditablePriceProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(value.toString())
   const inputRef = useRef<HTMLInputElement>(null)
@@ -46,6 +48,14 @@ export function EditablePrice({ value, onChange, className = "" }: EditablePrice
 
   const formatPrice = (num: number) => {
     return num.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  }
+
+  if (disabled) {
+    return (
+      <span className={`font-medium tabular-nums ${className}`}>
+        $ {formatPrice(value)}
+      </span>
+    )
   }
 
   if (isEditing) {

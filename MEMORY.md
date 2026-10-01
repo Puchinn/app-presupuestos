@@ -3,7 +3,7 @@
 > Este archivo lo lee y lo mantiene el agente. `AGENTS.md` tiene las reglas estables; aquí va lo que cambia.
 > Si hay contradicción entre ambos, manda `AGENTS.md`. Ver "Protocolo de MEMORY.md" allí.
 
-Última actualización: 2026-10-01 (T-020 hecha: `loading.tsx`/`error.tsx` de `(dashboard)` y `(budget)`)
+Última actualización: 2026-10-01 (T-016 + T-019 hechas: emisión de presupuestos y editor de solo lectura)
 
 ## 1. Estado actual
 
@@ -13,8 +13,9 @@
 - Dashboard en `/`.
 - `/profile`: editar información del usuario.
 - `/new-budget`: crear presupuestos.
-- `/edit/[id]`: editar presupuestos con autoguardado (`useBudget`, debounce 800 ms). Incluye un sidebar de 5 pestañas: Servicios, Textos, Configuración y Cliente están cableadas (T-010, T-013a, T-013b, T-015, T-012); Info es solo lectura con checklist (falta T-016).
-- Hay dos campos de estado: `status` (`draft | issued`, fiscal, con acción "Emitir") y `sent_status` (`draft | pending | sent | approved | rejected`, comercial). `sent_status` se muestra (badge, filtros del dashboard, banner) y **ya se puede cambiar desde la UI** (menú en la tarjeta del dashboard y en el header del editor).
+- `/edit/[id]`: editar presupuestos con autoguardado (`useBudget`, debounce 800 ms). Incluye un sidebar de 5 pestañas: Servicios, Textos, Configuración, Cliente e Info están cableadas (T-010, T-013a, T-013b, T-015, T-012, T-016).
+- Hay dos campos de estado: `status` (`draft | issued`, fiscal) y `sent_status` (`draft | pending | sent | approved | rejected`, comercial). `sent_status` se muestra (badge, filtros del dashboard, banner) y **ya se puede cambiar desde la UI** (menú en la tarjeta del dashboard y en el header del editor). **"Emitir presupuesto" funciona desde T-016/T-019**: diálogo de confirmación, validación esencial en el servidor y, al emitir, folio `PRE-YYYY-NNN` + `sent_status: "pending"`.
+- Presupuesto emitido (`status === "issued"`): editor de **solo lectura** (documento y sidebar), marca de agua "Emitido" en el editor, autoguardado apagado y bloqueo en el servidor (`updateBudget`/`saveBudget` solo escriben filas `draft`). Irreversible por ahora (decisión del dueño).
 - `@react-pdf/renderer` (4.9.0) ya **se usa** en el editor: documento `features/budget/components/budget-pdf.tsx` + botones "Vista previa"/descarga en `pdf-actions.tsx` (T-003/T-004/T-005). Se importa solo con `import()` dinámico dentro de los handlers: nada lo carga en el render del servidor. **Probado a mano por el dueño 2026-09-30 (OK).**
 
 **Fuera de alcance por ahora**
@@ -24,7 +25,7 @@
 
 **Hallazgos de la auditoría del sidebar (T-002, 2026-09-29, solo lectura)**
 
-- Info: checklist = los 8 campos de `CheckEmpty` (`client_name`, `client_id`, `dates.sent`, `dates.estimated`, `services`, `logo_url`, `conditions`, `budget_details`); solo lectura y ya cableado. No valida la emisión: "Emitir presupuesto" no tiene `onClick` y `emitBudget` no llama `checkEmpty`.
+- ~~Info: checklist = los 8 campos de `CheckEmpty`…; "Emitir presupuesto" no tiene `onClick` y `emitBudget` no llama `checkEmpty`~~ (resuelto en T-016/T-019, 2026-10-01: checklist de dos niveles sin `CheckEmpty`, botón con diálogo y validación esencial en el servidor).
 - Servicios: "+ Ítem vacío" funciona (`createBlankService`); en `ServiceCard` no se pasan `onAdd`/`onUpdate`/`onDelete`, así que "Usar", "Guardar" y "Eliminar" del catálogo no hacen nada (destinos ya existen: `addService`, `updateService`, `deleteService`).
 - Clientes: solo `client_name` escribe; Contacto/CUIT/email/dirección no tienen handler ni columna; `client_id` lo exige `CheckEmpty` pero no hay selector. Tabla `clients` + `ClientSchema` existen y **no hay ni una acción ni un componente** que la use.
 - Textos: los 3 campos están comentados y referencian la API vieja `triggerAutoSave`; no existen `project_title`/`notes`/`payment_terms` (candidatos naturales: `budget_details`, `conditions`).
@@ -46,18 +47,21 @@ Las tareas se hacen de a una y con plan aprobado. El orden sugerido es de arriba
   Editor separado, sin Supabase. No debe tocar `useBudget` ni la persistencia actual. Requiere plan detallado antes de empezar.
 - **T-014** · Moneda, IVA, descuento y plazo de entrega · pendiente (diferida)
   Decidido: se difiere todo a T-014 y **mientras tanto se quitan esos controles de la UI** (hecho en T-015, 2026-09-30). El plazo de entrega probablemente sea `dates.estimated`. Cuando se retome: migración/schema y efecto en totales y PDF.
-- **T-016** · Emisión: validación en servidor y checklist en dos niveles · pendiente
-  Decidido: `emitBudget` valida en el servidor lo esencial (**razón social** y **al menos un servicio**); el checklist de Info pasa a dos niveles (esencial para emitir / recomendado) y **`client_id` sale del checklist**. El botón "Emitir presupuesto" no tiene `onClick` (nadie puede emitir desde la UI) y **T-016 se implementa junto con T-019**: no puede haber emisión sin bloquear la edición. Además (2026-09-30): el checklist **no debe exigir** `logo_url`, `conditions` ni `budget_details` si su toggle de `settings` está apagado.
+- ~~**T-016** · Emisión: validación en servidor y checklist en dos niveles~~ → **hecha 2026-10-01** (ver T-019, se implementaron juntas).
 - **T-017** · `/profile`: columnas reales y limpieza de UI · pendiente
   Decidido: **borrar `BankSection`**; los campos Mock pasan a columnas reales (estudio, CUIT, ciudad) → migración de `profiles` + `UserInfoSchema`; **email de solo lectura** desde `auth`; **`avatar_url` fuera** del formulario (la columna existe en DB y no se toca). Toca también el copy que promete datos bancarios.
-- **T-019** · Presupuestos emitidos (`status === "issued"`): editor de solo lectura + marca de agua · pendiente (prioridad alta)
-  Hoy el botón "Emitir presupuesto" (`header-status.tsx`) no tiene `onClick`, así que **no se puede emitir desde la UI**. **T-016 y T-019 se implementan juntas** (no emitir sin bloquear la edición). Cuando `status === "issued"`, `/edit/[id]` debe ser de solo lectura (campos, servicios, participantes, fechas) y la marca de agua "Emitido" debe mostrarse **también en el editor**, no solo en el PDF. El bloqueo debe validarse también en el **servidor**: `updateBudget` rechaza los cambios cuando `status === "issued"`.
-
-### En curso
-
-_(ninguna)_
+- ~~**T-019** · Presupuestos emitidos (`status === "issued"`): editor de solo lectura + marca de agua~~ → **hecha 2026-10-01** (junto con T-016).
 
 ### Hechas
+
+- **T-016 + T-019** · Emisión de presupuestos y editor de solo lectura · hecha 2026-10-01
+  Plan aprobado 2026-10-01 (el dueño respondió "confirmo todo" a las 4 decisiones; plan completo en el historial de esta sesión):
+  - **Objetivo:** "Emitir presupuesto" funciona con validación esencial en el servidor, y un presupuesto con `status === "issued"` queda de solo lectura en el editor (con marca de agua "Emitido"), reforzado en el servidor.
+  - **Archivos modificados:** `features/budget/types.ts` (nuevos `runChecklist`/`toIssues` con dos niveles — esencial = `client_name` + `services`; recomendado = `dates.sent`, `dates.estimated` y `logo_url`/`conditions`/`budget_details` solo si su toggle de `settings` está prendido; `client_id` fuera del checklist; `EmitEssentialSchema`, `EmitBudgetResult`; se eliminó `CheckEmpty`), `features/budget/actions.ts` (`updateBudget`/`saveBudget` con WHERE `.eq("status","draft")` + fallback, omit de `status`/`sent_status` del payload; `emitBudget` reescrito: lee la fila, idempotente, valida esenciales, escribe todos los campos + `public_code` + `status: "issued"` + `sent_status: "pending"`, `revalidatePath("/")`), `features/budget/hooks/use-budget.ts` (`readOnly`, `checklist()`, `cancelPendingSave()`, `saveNow()`, `setIssued()`; autoguardado apaga cuando emitido), `header-status.tsx` (diálogo + badge "Emitido" + aviso 5 s), `budget-edit.tsx` (marca de agua + `disabled` en todo + botones ocultos), `tab-info.tsx` (checklist dos niveles), `tab-services/client/texts/settings.tsx` (controles deshabilitados), `new-servicecard.tsx` (prop `readOnly`), genéricos con `disabled`: `editable-field`, `editable-price`, `editable-quantity`, `editable-bullet-list`, `ui/date-picker`, `image-upload`.
+  - **Archivo creado:** `features/budget/components/emit-confirm-dialog.tsx` (AlertDialog: muestra faltantes esenciales y no deja emitir si los hay; loading/error internos).
+  - **Decisiones del dueño (las 4):** (1) **AlertDialog de confirmación**; (2) sidebar emitido → **deshabilitar controles con las 5 pestañas visibles**; (3) `sent_status` **sigue siendo cambiable** y `emitBudget` **mantiene** el force a `pending`; (4) **irreversible** (sin "Volver a borrador").
+  - **Sin migraciones, sin dependencias nuevas, sin tocar `proxy.ts` ni RLS.**
+  - **Verificación:** `tsc --noEmit` limpio; `lint` en la línea base (3 errores + 5 warnings; se introdujo uno en el diálogo nuevo y se corrigió pasándolo a handler en vez de effect); `build` OK. **No se probó en el navegador.**
 
 - **T-020** · `loading.tsx` y `error.tsx` por ruta · hecha 2026-10-01
   Creada 2026-10-01 al aprobar T-009 (decisión del dueño: tratarlos en otra tarea).
@@ -242,6 +246,10 @@ Formato: fecha · decisión · porqué.
 - 2026-10-01 · T-020: los `error.tsx` de `(dashboard)` y `(budget)` usan `ErrorState` con la prop nueva **`onRetry`** (pasa el `retry()` de Next); sin `onRetry` el botón sigue haciendo `router.refresh()`. `description` se amplió a `React.ReactNode` para mostrar `error.digest` en letra chica. · Un solo componente de error para toda la app y un reintento que sí re-renderiza el segmento fallido.
 - 2026-10-01 · T-020: alcance de `loading.tsx` = **solo** los grupos `(dashboard)` y `(budget)`; `profile/loading.tsx` ya existía y no se tocó. `error.tsx` de `(dashboard)` va **sin** link "Volver al inicio" (su ruta es `/`). · Decisión del dueño; fuera `global-error.tsx`, `not-found.tsx` y `/login`.
 - 2026-10-01 · T-020: los skeletons nuevos repiten la **paleta slate y el `animate-pulse` del contenedor** de `profile/loading.tsx` (divs crudos, sin el componente `Skeleton` de shadcn). · Consistencia visual con el único `loading.tsx` que ya existía.
+- 2026-10-01 · T-016/T-019: la emisión pide **confirmación en un AlertDialog** (folio `PRE-YYYY-NNN` + documento sellado), no emisión directa. · Emitir es irreversible y bloquea la edición: el usuario debe saberlo antes.
+- 2026-10-01 · T-016/T-019: con el presupuesto emitido el sidebar **deshabilita los controles pero mantiene las 5 pestañas visibles**. · Info y las demás siguen siendo útiles para consultar.
+- 2026-10-01 · T-016/T-019: `sent_status` **sigue siendo cambiable** estando emitido y `emitBudget` **mantiene** el force a `pending`. · Son estados independientes: el fiscal sella el documento, el comercial sigue su negociación.
+- 2026-10-01 · T-016/T-019: la emisión es **irreversible** por ahora (sin "Volver a borrador"). · Decisión del dueño; revisable.
 
 ## 5. Bugs y deuda técnica
 
@@ -254,8 +262,9 @@ Formato: fecha · decisión · porqué.
 - UI muerta sin handler (auditoría T-002): botón "Emitir presupuesto" (`header-status.tsx`), ~~"Vista previa" (`header-status.tsx`)~~ (cableado en T-004), ~~"Usar"/"Guardar"/"Eliminar" de `ServiceCard`~~ (cableados en T-010), los 4 inputs de la pestaña Cliente menos `client_name`, ~~los 3 campos de Textos~~ (cableados en T-013a: quedan 2, se borró el de título) y ~~los 5 de Configuración~~ (los 4 toggles cableados en T-015; los controles muertos de Configuración se borraron, diferidos a T-014), y 4 campos "Mock" + `BankSection` en `/profile`.
 - `DeleteAlertDialog` cierra el diálogo siempre que `onConfirm` resuelva, incluso si el borrado falló; el error queda visible solo como aviso efímero en la tarjeta. No se tocó el componente compartido en T-010.
 - Limitación conocida (queda fuera de T-015, anotada 2026-09-30): al apagar `show_logo_url` o `show_footer_url`, `budget-edit.tsx` oculta también el `ImageUpload`, así que no se puede cambiar la imagen sin reactivar el toggle.
-- `editBudgetInfo` acepta `status`, `sent_status`, `public_code` y `settings`: hoy ningún control abusa, pero nada lo impide (el autoguardado escribiría esas columnas).
+- `editBudgetInfo` (hook) acepta `status`, `sent_status`, `public_code` y `settings`: ningún control abusa; desde T-016 el servidor **ignora** `status`/`sent_status` en `updateBudget`, así que el riesgo quedó solo en el estado local.
 - Tabla `budget_items` (migración 1): **huérfana** — sin types, sin actions, sin componentes; además en `text_items` se le borró `budget_item_id` en la migración 2, así que nadie la referencia. Decidir si se usa o se elimina (borrar tabla = migración, pedir aprobación).
+- **Carrera de folio en `emitBudget`** (T-016, fuera de alcance): lee `counters.budget_sequence`, suma 1 y escribe de vuelta sin RPC/lock; dos emisiones simultáneas pueden recibir el mismo `public_code`. Requiere migración (RPC con `FOR UPDATE` o secuencia) → pedir aprobación.
 - No hay tests ni CI. No agregar sin consultar.
 - `updateTextItem` (T-018) existe **sin UI**: decisión del dueño (sin edición inline de fragmentos); no es código muerto olvidado.
 - ~~**Doble prefijo en las imágenes del editor**~~ (arreglado 2026-10-01): `budget-edit.tsx` ya **no** llama `changeLogoUrl`/`changeFooterUrl`; usa `uploadPublicImage` (`lib/storage.ts`) y guarda el **path relativo** (mismo formato que el perfil). `getPublicStorageUrl()` solo se aplica sobre paths; el PDF tolera ambos formatos con `resolveImageUrl`.
@@ -277,6 +286,7 @@ Formato: fecha · decisión · porqué.
 - No existe ningún sistema de toasts/avisos en el proyecto; el "estado de guardado" más cercano es `SaveStatusIndicator` (`status-indicator.tsx`), que lee el `status` del contexto y no sirve para avisos efímeros de otras acciones.
 - Comillas rectas (`"`) en texto JSX crudo rompen `pnpm lint` (`react/no-unescaped-entities`); escapar con `&quot;` o usar comillas tipográficas. En atributos entre comillas simples no falla.
 - Una columna **nullable** en DB no se parsea con `z.string().optional().default("")`: `.optional()` solo admite `undefined` y `null` revienta el parse. Usar `.nullish()` + `transform` (o `.nullable()`). Detectado en T-012 con `clients.email` antes de usarla en `ClientSchema`.
+- No editar archivos con `(Get-Content …) -replace … | Set-Content` en PowerShell 5.1: escribe en ANSI y reemplaza los acentos por `?` (dañó `emit-confirm-dialog.tsx` en T-016; hubo que reescribirlo con la herramienta de edición, que usa UTF-8).
 
 ## 7. Notas del historial
 
@@ -303,3 +313,4 @@ Una línea por tarea terminada: `YYYY-MM-DD · T-XXX · resultado`.
 - 2026-10-01 · — · Fix del doble prefijo de imágenes: `budget-edit.tsx` usa `uploadPublicImage` y guarda path relativo (commit aparte del de T-008); anotadas 3 deudas nuevas (actions huérfanas, datos viejos con URL completa, upsert compartido en storage).
 - 2026-10-01 · T-009 · `ErrorState` con reintento (`router.refresh`) en dashboard, perfil y editor; banner del dashboard con aviso compacto en fallo (opción B); `getById` distingue no-encontrado (`PGRST116`); avisos efímeros de 3 s (éxito y error) en subidas de imagen del editor y del perfil y en "Guardar este servicio". T-008 movida de "Pendientes" a "Hechas" y creada T-020 (loading/error.tsx). `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador. Commit `feat(ui)`: incluye además un tweak previo del dueño en `lib/storage.ts` (`error.statusCode` en el `console.error` de la subida); `README.md` y `CLAUDE.md` quedaron fuera por decisión del dueño.
 - 2026-10-01 · T-020 · Skeletons de carga en `app/(dashboard)/loading.tsx` (nuevo) y `app/(budget)/loading.tsx` (dejó de mostrar `"loadingg"`) + error boundaries `app/(dashboard)/error.tsx` y `app/(budget)/error.tsx` con reintento vía `ErrorState.onRetry` (prop nueva) y `error.digest` en letra chica. `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador. Commit `feat(ui)`; `CLAUDE.md`, `README.md` y `supabase/snippets/Untitled query 713.sql` quedaron fuera por decisión del dueño.
+- 2026-10-01 · T-016 + T-019 · Emisión cableada (`emitBudget` valida esenciales y fuerza `status: "issued"` + `sent_status: "pending"`, `updateBudget`/`saveBudget` solo escriben filas `draft`) y editor de solo lectura (checklist de dos niveles, `disabled` en campos/fechas/uploads, botones de edición ocultos, marca de agua "Emitido", badge en el header, autoguardado apagado); nuevo `emit-confirm-dialog.tsx` con las 4 decisiones del dueño (diálogo, sidebar deshabilitado, `sent_status` cambiable, irreversible). Sin migraciones ni dependencias. `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador. Commit `feat(budget)`; `CLAUDE.md`, `README.md` y `supabase/snippets/Untitled query 713.sql` quedaron fuera por decisión del dueño.

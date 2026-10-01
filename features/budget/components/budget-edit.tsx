@@ -48,7 +48,7 @@ function InlineNotice({
   );
 }
 
-export function BudgetEdit({ budget, methods }: HookReturn) {
+export function BudgetEdit({ budget, methods, readOnly }: HookReturn) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [notice, setNotice] = useState<NoticeData | null>(null);
@@ -114,7 +114,22 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
 
   return (
     <div className="max-w-[900px] break-inside-avoid w-full mx-auto print:my-0 print:max-w-none">
-      <div className="shadow-sm print:shadow-none">
+      <div className="relative shadow-sm print:shadow-none">
+        {/* Marca de agua del editor: el PDF tiene la suya propia (sin "BORRADOR"
+            cuando está emitido), así que esto solo se ve en pantalla. */}
+        {readOnly && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute inset-0 flex flex-col items-center justify-around overflow-hidden print:hidden"
+          >
+            <span className="text-6xl sm:text-7xl font-black uppercase tracking-[0.25em] text-slate-900/10 -rotate-12">
+              Emitido
+            </span>
+            <span className="text-6xl sm:text-7xl font-black uppercase tracking-[0.25em] text-slate-900/10 -rotate-12">
+              Emitido
+            </span>
+          </div>
+        )}
         {/* HEADER  */}
         <header className="bg-black text-white px-12 py-8">
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-6">
@@ -125,6 +140,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                   onUpload={changeLogo}
                   size={140}
                   onDeleteImage={() => clearImage("logo_url")}
+                  disabled={readOnly}
                 />
               )}
             </div>
@@ -142,6 +158,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                     setDate={(date) =>
                       methods.editDates("sent", date.toString())
                     }
+                    disabled={readOnly}
                   />
                 </div>
                 <div className="text-right">
@@ -153,6 +170,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                     setDate={(date) =>
                       methods.editDates("estimated", date.toString())
                     }
+                    disabled={readOnly}
                   />
                 </div>
               </div>
@@ -168,6 +186,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                     })
                   }
                   className="text-sm text-background/80"
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -185,6 +204,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                 })
               }
               className="text-sm font-medium text-background tracking-wide"
+              disabled={readOnly}
             />
           </div>
         </header>
@@ -233,44 +253,50 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                           methods.editService(service.id, { name: value })
                         }
                         className="text-base font-semibold text-foreground tracking-tight"
+                        disabled={readOnly}
                       />
-                      <button
-                        onClick={() => methods.removeService(service.id)}
-                        className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
-                        aria-label="Eliminar servicio"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {!readOnly && (
+                        <button
+                          onClick={() => methods.removeService(service.id)}
+                          className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
+                          aria-label="Eliminar servicio"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                     <EditableBulletList
                       items={service.details}
                       onChange={(items) =>
                         methods.editService(service.id, { details: items })
                       }
+                      disabled={readOnly}
                     />
-                    <div className="print:hidden flex gap-3 relative mt-2 items-center">
-                      <button
-                        onClick={async () => {
-                          const result = await saveService(service);
-                          if (result.ok) {
-                            showNotice(
-                              service.id,
-                              "ok",
-                              "Servicio guardado en tu catálogo.",
-                            );
-                          } else {
-                            showNotice(service.id, "error", result.error);
-                          }
-                        }}
-                        className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                      >
-                        <Save className="h-3 w-3" />
-                        Guardar este servicio{" "}
-                      </button>
-                      {notice?.id === service.id && (
-                        <InlineNotice notice={notice} />
-                      )}
-                    </div>
+                    {!readOnly && (
+                      <div className="print:hidden flex gap-3 relative mt-2 items-center">
+                        <button
+                          onClick={async () => {
+                            const result = await saveService(service);
+                            if (result.ok) {
+                              showNotice(
+                                service.id,
+                                "ok",
+                                "Servicio guardado en tu catálogo.",
+                              );
+                            } else {
+                              showNotice(service.id, "error", result.error);
+                            }
+                          }}
+                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                        >
+                          <Save className="h-3 w-3" />
+                          Guardar este servicio{" "}
+                        </button>
+                        {notice?.id === service.id && (
+                          <InlineNotice notice={notice} />
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-center pt-0.5">
@@ -280,6 +306,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                         methods.editService(service.id, { quantity: value })
                       }
                       className="text-[15px] text-foreground"
+                      disabled={readOnly}
                     />
                   </div>
 
@@ -290,6 +317,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                         methods.editService(service.id, { price: v })
                       }
                       className="text-[15px] text-foreground"
+                      disabled={readOnly}
                     />
                   </div>
 
@@ -305,13 +333,15 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
               );
             })}
 
-            <button
-              onClick={methods.createBlankService}
-              className="print:hidden flex items-center gap-2 mt-5 text-sm text-muted-foreground hover:text-foreground transition-colors tracking-wide"
-            >
-              <Plus className="h-4 w-4" />
-              Agregar servicio
-            </button>
+            {!readOnly && (
+              <button
+                onClick={methods.createBlankService}
+                className="print:hidden flex items-center gap-2 mt-5 text-sm text-muted-foreground hover:text-foreground transition-colors tracking-wide"
+              >
+                <Plus className="h-4 w-4" />
+                Agregar servicio
+              </button>
+            )}
           </section>
           {/* FIN SERVICIOS */}
 
@@ -339,15 +369,17 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                 <h3 className="text-[11px] font-medium uppercase tracking-[0.25em] text-muted-foreground">
                   Condiciones de pago
                 </h3>
-                <button
-                  onClick={() => guardarTexto("conditions")}
-                  disabled={isPending}
-                  className="print:hidden flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-50"
-                  title="Guardar esta condicion para reutilizarla"
-                >
-                  <Save className="h-3 w-3" />
-                  Guardar
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={() => guardarTexto("conditions")}
+                    disabled={isPending}
+                    className="print:hidden flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-50"
+                    title="Guardar esta condicion para reutilizarla"
+                  >
+                    <Save className="h-3 w-3" />
+                    Guardar
+                  </button>
+                )}
               </div>
               {notice?.id === "conditions" && (
                 <InlineNotice notice={notice} className="mb-3" />
@@ -359,6 +391,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                 }
                 multiline
                 className="text-[15px] leading-relaxed text-muted-foreground w-full"
+                disabled={readOnly}
               />
             </section>
           )}
@@ -371,15 +404,17 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                 <h2 className="text-[11px] font-medium uppercase tracking-[0.25em] text-muted-foreground">
                   Detalle del presupuesto
                 </h2>
-                <button
-                  onClick={() => guardarTexto("budget_details")}
-                  disabled={isPending}
-                  className="print:hidden flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-50"
-                  title="Guardar este detalle para reutilizarlo"
-                >
-                  <Save className="h-3 w-3" />
-                  Guardar
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={() => guardarTexto("budget_details")}
+                    disabled={isPending}
+                    className="print:hidden flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-50"
+                    title="Guardar este detalle para reutilizarlo"
+                  >
+                    <Save className="h-3 w-3" />
+                    Guardar
+                  </button>
+                )}
               </div>
               {notice?.id === "budget_details" && (
                 <InlineNotice notice={notice} className="mb-3" />
@@ -391,6 +426,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                 }
                 multiline
                 className="text-[15px] leading-relaxed text-muted-foreground w-full"
+                disabled={readOnly}
               />
             </section>
           )}
@@ -408,6 +444,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                     size={80}
                     defaultSrc={getPublicStorageUrl(budget.footer_img_url)}
                     onDeleteImage={() => clearImage("footer_img_url")}
+                    disabled={readOnly}
                   />
                   {notice?.id === "footer" && <InlineNotice notice={notice} />}
                 </div>
@@ -422,6 +459,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                     methods.editBudgetInfo({ website: value })
                   }
                   className="text-sm font-medium text-foreground"
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -433,13 +471,17 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                     key={participant.id}
                     className="group flex items-center justify-end gap-2"
                   >
-                    <button
-                      onClick={() => methods.removeParticipant(participant.id)}
-                      className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
-                      aria-label="Eliminar participante"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                    {!readOnly && (
+                      <button
+                        onClick={() =>
+                          methods.removeParticipant(participant.id)
+                        }
+                        className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
+                        aria-label="Eliminar participante"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
                     <div className="text-right">
                       <EditableField
                         value={participant.name}
@@ -449,6 +491,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                           })
                         }
                         className="text-[15px] font-semibold text-foreground"
+                        disabled={readOnly}
                       />
                       <br />
                       <EditableField
@@ -457,18 +500,21 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                           methods.editParticipant(participant.id, { role: v })
                         }
                         className="text-sm text-muted-foreground"
+                        disabled={readOnly}
                       />
                     </div>
                   </div>
                 ))}
               </div>
-              <button
-                onClick={methods.createBlankParticipant}
-                className="print:hidden inline-flex items-center gap-1.5 mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors tracking-wide"
-              >
-                <UserPlus className="h-4 w-4" />
-                Agregar participante
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={methods.createBlankParticipant}
+                  className="print:hidden inline-flex items-center gap-1.5 mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors tracking-wide"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Agregar participante
+                </button>
+              )}
             </div>
           </div>
 
@@ -479,12 +525,14 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                 methods.editBudgetInfo({ contact_number: value })
               }
               className="text-sm text-muted-foreground"
+              disabled={readOnly}
             />
             <span className="text-foreground/10">|</span>
             <EditableField
               value={budget.website}
               onChange={(value) => methods.editBudgetInfo({ website: value })}
               className="text-sm text-muted-foreground"
+              disabled={readOnly}
             />
           </div>
 
