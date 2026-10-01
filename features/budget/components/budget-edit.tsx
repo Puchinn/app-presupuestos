@@ -11,11 +11,11 @@ import { EditableQuantity } from "@/components/editable-quantity";
 import { EditablePrice } from "@/components/editable-price";
 import { EditableBulletList } from "@/components/editable-bullet-list";
 import { HookReturn } from "../hooks/use-budget";
-import { changeFooterUrl, changeLogoUrl } from "../actions";
 import type { Budget } from "../types";
 import { saveService } from "@/features/services-catalog/actions";
 import { getPublicStorageUrl } from "@/lib/utils";
 import { createTextItem } from "@/features/text-item/actions";
+import { uploadPublicImage } from "@/lib/storage";
 
 export function BudgetEdit({ budget, methods }: HookReturn) {
   const router = useRouter();
@@ -54,22 +54,20 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
     showSaveNotice(
       campo,
       result.ok ? "ok" : "error",
-      result.ok
-        ? "Fragmento guardado en la biblioteca."
-        : result.error,
+      result.ok ? "Fragmento guardado en la biblioteca." : result.error,
     );
   };
 
   const changeLogo = async (file: File) => {
-    const url = await changeLogoUrl(file, budget.id);
+    const upload = await uploadPublicImage(file);
     methods.editBudgetInfo({
-      logo_url: url,
+      logo_url: upload.path,
     });
   };
   const changeFooterImage = async (file: File) => {
-    const url = await changeFooterUrl(file, budget.id);
+    const upload = await uploadPublicImage(file);
     methods.editBudgetInfo({
-      footer_img_url: url,
+      footer_img_url: upload.path,
     });
   };
 
