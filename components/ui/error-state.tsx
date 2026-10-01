@@ -6,9 +6,14 @@ import { AlertTriangle } from "lucide-react";
 
 interface ErrorStateProps {
   title?: string;
-  description: string;
-  /** Muestra el botón "Reintentar" (router.refresh). Por defecto sí. */
+  description: React.ReactNode;
+  /** Muestra el botón "Reintentar". Por defecto sí. */
   retry?: boolean;
+  /**
+   * Reintento propio (ej. el `retry()` de un `error.tsx`). Si no se pasa, el
+   * botón usa `router.refresh()`.
+   */
+  onRetry?: () => void;
   /** Acción secundaria (ej. un Link "Volver al inicio"). */
   action?: React.ReactNode;
   /** Variante compacta y horizontal, para uso dentro de tarjetas (banner). */
@@ -20,6 +25,7 @@ export function ErrorState({
   title,
   description,
   retry = true,
+  onRetry,
   action,
   compact = false,
   className = "",
@@ -27,7 +33,11 @@ export function ErrorState({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const handleRetry = () => startTransition(() => router.refresh());
+  const handleRetry = () =>
+    startTransition(() => {
+      if (onRetry) onRetry();
+      else router.refresh();
+    });
 
   if (compact) {
     return (

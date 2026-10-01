@@ -3,7 +3,7 @@
 > Este archivo lo lee y lo mantiene el agente. `AGENTS.md` tiene las reglas estables; aquí va lo que cambia.
 > Si hay contradicción entre ambos, manda `AGENTS.md`. Ver "Protocolo de MEMORY.md" allí.
 
-Última actualización: 2026-10-01 (T-009 hecha: ErrorState + avisos efímeros; creada T-020 para loading/error.tsx)
+Última actualización: 2026-10-01 (T-020 hecha: `loading.tsx`/`error.tsx` de `(dashboard)` y `(budget)`)
 
 ## 1. Estado actual
 
@@ -52,14 +52,25 @@ Las tareas se hacen de a una y con plan aprobado. El orden sugerido es de arriba
   Decidido: **borrar `BankSection`**; los campos Mock pasan a columnas reales (estudio, CUIT, ciudad) → migración de `profiles` + `UserInfoSchema`; **email de solo lectura** desde `auth`; **`avatar_url` fuera** del formulario (la columna existe en DB y no se toca). Toca también el copy que promete datos bancarios.
 - **T-019** · Presupuestos emitidos (`status === "issued"`): editor de solo lectura + marca de agua · pendiente (prioridad alta)
   Hoy el botón "Emitir presupuesto" (`header-status.tsx`) no tiene `onClick`, así que **no se puede emitir desde la UI**. **T-016 y T-019 se implementan juntas** (no emitir sin bloquear la edición). Cuando `status === "issued"`, `/edit/[id]` debe ser de solo lectura (campos, servicios, participantes, fechas) y la marca de agua "Emitido" debe mostrarse **también en el editor**, no solo en el PDF. El bloqueo debe validarse también en el **servidor**: `updateBudget` rechaza los cambios cuando `status === "issued"`.
-- **T-020** · `loading.tsx` y `error.tsx` por ruta · pendiente
-  Creada 2026-10-01 al aprobar T-009 (decisión del dueño: tratarlos en otra tarea). Incluye reescribir `app/(budget)/loading.tsx` (hoy muestra `"loadingg"`, ver §5), crear `app/(dashboard)/loading.tsx` (skeleton del dashboard) y los `error.tsx` de `(dashboard)` y `(budget)`. `app/(dashboard)/profile/loading.tsx` ya existe y está bien.
 
 ### En curso
 
 _(ninguna)_
 
 ### Hechas
+
+- **T-020** · `loading.tsx` y `error.tsx` por ruta · hecha 2026-10-01
+  Creada 2026-10-01 al aprobar T-009 (decisión del dueño: tratarlos en otra tarea).
+  Plan aprobado 2026-10-01 (respuestas del dueño):
+  - **Objetivo:** navegación dentro de `(dashboard)` y `(budget)` con skeleton de la pantalla real, y un error inesperado de render cae en un boundary con reintento en español.
+  - **Archivos a crear:** `app/(dashboard)/loading.tsx` (skeleton del dashboard: banner + filtros + grilla, renderiza dentro del `<main>`), `app/(dashboard)/error.tsx` y `app/(budget)/error.tsx` (boundaries clientes).
+  - **Archivos a modificar:** `app/(budget)/loading.tsx` (hoy devuelve `"loadingg"`; skeleton con forma del editor: fila de status + sidebar + documento; cubre `/edit/[id]` y `/new-budget`), `components/ui/error-state.tsx`, `MEMORY.md`.
+  - **No se tocó:** `app/(dashboard)/profile/loading.tsx` (ya está bien), `proxy.ts`, actions, migraciones, dependencias.
+  - **Decisiones del dueño:** (1) reintento → **opción A**: prop opcional `onRetry?: () => void` en `ErrorState` que reemplaza al `router.refresh()` por defecto (los `error.tsx` pasan `retry()` de Next); (2) alcance de `loading.tsx` → **solo** `(dashboard)` + `(budget)`, sin `/login` ni skeletons por ruta; (3) UI de error → **mensaje genérico en español + `error.digest` en letra chica**, con `console.error(error)` en `useEffect`.
+  - **Fuera de alcance:** `global-error.tsx`, `not-found.tsx`, `loading.tsx` de `/login`, `AppHeader` (async en el layout, arriba del skeleton: la navegación puede seguir bloqueando en él, igual que hoy).
+  - **Verificación:** `tsc`, `lint` contra la línea base, `build`; sin prueba en navegador.
+    Hecho 2026-10-01: `ErrorState` con `onRetry` opcional (y `description` ampliado a `React.ReactNode` para poder mostrar el digest en letra chica); `app/(dashboard)/error.tsx` (solo reintento, ya que la ruta es `/`) y `app/(budget)/error.tsx` (reintento + "Volver al inicio"); `app/(budget)/loading.tsx` reescrito (fila de estado, sidebar colapsado y documento) y `app/(dashboard)/loading.tsx` nuevo (banner + KPIs + filtros + grilla), ambos con `animate-pulse` y la paleta slate de `profile/loading.tsx`.
+    Verificado con `tsc --noEmit`, `lint` (línea base: 3 errores + 5 warnings, ninguno en los archivos nuevos) y `build`; **no** se probó en el navegador.
 
 - **T-009** · Estados de carga y UI de error/vacío · hecha 2026-10-01
   Plan aprobado 2026-10-01 (respuestas del dueño):
@@ -228,6 +239,9 @@ Formato: fecha · decisión · porqué.
 - 2026-10-01 · T-009: `budget-banner` en fallo de presupuestos → **opción B**: se mantiene el banner (saludo + CTA) y la línea de conteo y los KPIs se reemplazan por un aviso compacto con "Reintentar". · Un cero en los KPIs miente sobre el estado real de la cuenta.
 - 2026-10-01 · T-009: `getById` distingue **0 filas** (`.single()` con código `PGRST116` → "no encontramos ese presupuesto") de un error de lectura real. · "No existe/sin permiso" y "falló la conexión" piden respuestas distintas en la UI.
 - 2026-10-01 · T-009: avisos efímeros de 3 s **tanto de éxito como de error** en subidas de imagen (editor y perfil) y en "Guardar este servicio", sin librería de toasts y con un `InlineNotice` por archivo. · El usuario también necesita confirmación de que la acción funcionó; mantener el patrón de avisos ya usado en el editor.
+- 2026-10-01 · T-020: los `error.tsx` de `(dashboard)` y `(budget)` usan `ErrorState` con la prop nueva **`onRetry`** (pasa el `retry()` de Next); sin `onRetry` el botón sigue haciendo `router.refresh()`. `description` se amplió a `React.ReactNode` para mostrar `error.digest` en letra chica. · Un solo componente de error para toda la app y un reintento que sí re-renderiza el segmento fallido.
+- 2026-10-01 · T-020: alcance de `loading.tsx` = **solo** los grupos `(dashboard)` y `(budget)`; `profile/loading.tsx` ya existía y no se tocó. `error.tsx` de `(dashboard)` va **sin** link "Volver al inicio" (su ruta es `/`). · Decisión del dueño; fuera `global-error.tsx`, `not-found.tsx` y `/login`.
+- 2026-10-01 · T-020: los skeletons nuevos repiten la **paleta slate y el `animate-pulse` del contenedor** de `profile/loading.tsx` (divs crudos, sin el componente `Skeleton` de shadcn). · Consistencia visual con el único `loading.tsx` que ya existía.
 
 ## 5. Bugs y deuda técnica
 
@@ -249,7 +263,7 @@ Formato: fecha · decisión · porqué.
 - **Datos viejos con URL completa**: presupuestos guardados por el flujo anterior se siguen viendo rotos en el editor (el PDF no, usa `resolveImageUrl`). **Sugerencia sin migración:** subir `resolveImageUrl` a `lib/utils.ts` y usarlo en los dos `defaultSrc` de `budget-edit.tsx`.
 - **Storage compartido con `upsert`**: perfil y presupuestos apuntan al mismo archivo (`<user_id>/<nombre-archivo>`, `upsert: true` en `uploadPublicImage`), así que subir un archivo con el mismo nombre desde el perfil o desde otro presupuesto **pisa** el archivo y cambia retroactivamente todas las referencias — el "snapshot" del presupuesto no es un snapshot.
 - **Formatos de imagen incompatibles con el PDF** (deuda, decisión del dueño 2026-09-30: solo anotar): la bucket no valida MIME (`allowed_mime_types` comentado en `config.toml`), `image-upload.tsx` acepta `image/*` y el dropzone del perfil acepta `svg+xml`/`webp`, pero react-pdf sólo renderiza **JPG y PNG** → un logo en SVG/WebP hará fallar la vista previa y la descarga (hoy se muestra "No se pudo generar el archivo." en español).
-- `app/(budget)/loading.tsx` muestra `"loadingg"` (texto placeholder con typo). Quedó fuera de T-011 sin respuesta del dueño; derivado a **T-020** (2026-10-01, junto con los `loading.tsx`/`error.tsx` que el dueño sacó de T-009).
+- ~~`app/(budget)/loading.tsx` muestra `"loadingg"` (texto placeholder con typo)~~ (resuelto en T-020, 2026-10-01: skeleton con la forma del editor; además `app/(dashboard)/loading.tsx` y los `error.tsx` de ambos grupos).
 
 ## 6. Lecciones aprendidas
 
@@ -288,3 +302,4 @@ Una línea por tarea terminada: `YYYY-MM-DD · T-XXX · resultado`.
 - 2026-10-01 · T-008 · Server actions de `budget`, `user`, `saveService` de `services-catalog`, `uploadPublicImage` (`lib/storage.ts`) y `logIn` a resultado tipado; **cero `throw` en server actions**; `updateBudget` sin placeholder y con filtro `user_id`; consumidores adaptados (diálogo de borrado abierto con el error). `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador.
 - 2026-10-01 · — · Fix del doble prefijo de imágenes: `budget-edit.tsx` usa `uploadPublicImage` y guarda path relativo (commit aparte del de T-008); anotadas 3 deudas nuevas (actions huérfanas, datos viejos con URL completa, upsert compartido en storage).
 - 2026-10-01 · T-009 · `ErrorState` con reintento (`router.refresh`) en dashboard, perfil y editor; banner del dashboard con aviso compacto en fallo (opción B); `getById` distingue no-encontrado (`PGRST116`); avisos efímeros de 3 s (éxito y error) en subidas de imagen del editor y del perfil y en "Guardar este servicio". T-008 movida de "Pendientes" a "Hechas" y creada T-020 (loading/error.tsx). `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador. Commit `feat(ui)`: incluye además un tweak previo del dueño en `lib/storage.ts` (`error.statusCode` en el `console.error` de la subida); `README.md` y `CLAUDE.md` quedaron fuera por decisión del dueño.
+- 2026-10-01 · T-020 · Skeletons de carga en `app/(dashboard)/loading.tsx` (nuevo) y `app/(budget)/loading.tsx` (dejó de mostrar `"loadingg"`) + error boundaries `app/(dashboard)/error.tsx` y `app/(budget)/error.tsx` con reintento vía `ErrorState.onRetry` (prop nueva) y `error.digest` en letra chica. `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador. Commit `feat(ui)`; `CLAUDE.md`, `README.md` y `supabase/snippets/Untitled query 713.sql` quedaron fuera por decisión del dueño.
