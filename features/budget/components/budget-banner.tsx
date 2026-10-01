@@ -5,8 +5,12 @@ import { getUserBudgets } from "../actions";
 import { getUser } from "@/features/user/actions";
 
 export async function BudgetBanner() {
-  const user = await getUser();
-  const budgets = await getUserBudgets();
+  const userResult = await getUser();
+  const budgetsResult = await getUserBudgets();
+
+  // En fallo se muestra vacío por ahora; el estado de error queda en T-009.
+  const user = userResult.ok ? userResult.data : null;
+  const budgets = budgetsResult.ok ? budgetsResult.data : [];
 
   const counts = budgets.reduce(
     (acc, cur) => {
@@ -39,7 +43,7 @@ export async function BudgetBanner() {
             Panel de Control
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Hola, {user.full_name.trim().split(" ")[0]} 👋
+            Hola{user ? `, ${user.full_name.trim().split(" ")[0]}` : ""} 👋
           </h1>
           <p className="text-sm text-slate-600 mt-1">
             Tenés{" "}

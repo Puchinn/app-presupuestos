@@ -63,12 +63,9 @@ export function useBudget(initialBudget?: Budget) {
     setSaveStatus("saving");
     try {
       const result = await updateBudget(dataToSave);
-      if (result.success) {
-        setSaveStatus("saved");
-      } else {
-        setSaveStatus("error");
-      }
+      setSaveStatus(result.ok ? "saved" : "error");
     } catch (error) {
+      // Fallo de red: la action devuelve resultado tipado, esto cubre lo inesperado.
       console.error("Error al autoguardar:", error);
       setSaveStatus("error");
     }

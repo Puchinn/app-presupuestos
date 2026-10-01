@@ -4,7 +4,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { getUser, logOut } from "@/features/user/actions";
 
 export const AppHeader = async () => {
-  const user = await getUser();
+  const userResult = await getUser();
+  // Sin sesión o perfil ilegible se omite el saludo; el estado de error queda en T-009.
+  const user = userResult.ok ? userResult.data : null;
 
   return (
     <header
@@ -36,26 +38,28 @@ export const AppHeader = async () => {
 
         {/* User profile & greeting */}
         <div className="flex items-center gap-4">
-          <div className="text-right hidden sm:block">
-            <span className="text-xs text-slate-500 block">
-              Buenos Dias,{" "}
-              <strong className="text-slate-900 font-semibold">
-                {user.full_name}
-              </strong>
-            </span>
-            <span className="text-[11px] text-slate-400 block font-mono">
-              CUIT: {}
-            </span>
-          </div>
+          {user && (
+            <div className="text-right hidden sm:block">
+              <span className="text-xs text-slate-500 block">
+                Buenos Dias,{" "}
+                <strong className="text-slate-900 font-semibold">
+                  {user.full_name}
+                </strong>
+              </span>
+              <span className="text-[11px] text-slate-400 block font-mono">
+                CUIT: {}
+              </span>
+            </div>
+          )}
 
           <Link
             type="button"
             href="/profile"
-            className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none border border-transparent hover:border-slate-200 transition-colors"
+            className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none border border-transparent hover:border-slate-200 transition-all"
             title="Ir a Tu Información / Perfil"
             aria-label="Ver perfil y datos fiscales"
           >
-            {user.avatar_url.length ? (
+            {user && user.avatar_url.length ? (
               <img
                 src={user.avatar_url}
                 alt={`Avatar de ${user.full_name}`}

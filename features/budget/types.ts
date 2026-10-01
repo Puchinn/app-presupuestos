@@ -103,3 +103,22 @@ export const CheckEmpty: z.ZodType<Partial<Budget>> = z.object({
 });
 
 export type Filter = SentStatus | "issued" | "all";
+
+// Resultados tipados de las server actions del dominio (convención de AGENTS.md):
+// nunca throw, siempre { ok } | { ok: false; error } con mensaje en español.
+export type BudgetActionResult = { ok: true } | { ok: false; error: string };
+export type BudgetResult =
+  | { ok: true; data: Budget }
+  | { ok: false; error: string };
+export type BudgetListResult =
+  | { ok: true; data: Budget[] }
+  | { ok: false; error: string };
+export type BudgetIdResult =
+  | { ok: true; id: string }
+  | { ok: false; error: string };
+export type BudgetUrlResult =
+  | { ok: true; url: string }
+  | { ok: false; error: string };
+export type ChangeSentStatusResult =
+  | { ok: true; sent_status: SentStatus }
+  | { ok: false; error: string };

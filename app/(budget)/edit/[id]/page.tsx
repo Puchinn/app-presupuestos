@@ -13,15 +13,16 @@ interface Props {
 
 export default async function Page({ params }: Props) {
   const { id } = await params;
-  const budget = await getById(id);
+  const budgetResult = await getById(id);
   const services = await getServices();
   const texts = await getUserTexts();
   const clients = await getClients();
 
-  if (!budget) return "No se encontro el documento.";
+  // No existe o no se pudo leer (el estado de error fino queda en T-009).
+  if (!budgetResult.ok) return "No se encontro el documento.";
 
   return (
-    <BudgetProvider budget={budget}>
+    <BudgetProvider budget={budgetResult.data}>
       <div className="max-w-7xl space-y-8 w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <HeaderStatus />
         <div className="flex flex-col lg:flex-row gap-6 items-start">

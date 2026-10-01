@@ -47,15 +47,14 @@ export default function Page() {
 
     setIsLoading(true);
 
-    const error = await logIn({
+    const result = await logIn({
       password,
       email,
     });
 
-    if (error) {
-      setErrorMessage(
-        "Credenciales inválidas. Verificá tu correo electrónico y contraseña e intentá nuevamente.",
-      );
+    // En éxito logIn hace redirect y nunca resuelve (guarda por si acaso).
+    if (result && !result.ok) {
+      setErrorMessage(result.error);
       setIsLoading(false);
       return;
     }

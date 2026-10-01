@@ -60,12 +60,22 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
 
   const changeLogo = async (file: File) => {
     const upload = await uploadPublicImage(file);
+    if (!upload.ok) {
+      // Sin feedback visual por ahora; queda para T-009.
+      console.error(upload.error);
+      return;
+    }
     methods.editBudgetInfo({
       logo_url: upload.path,
     });
   };
   const changeFooterImage = async (file: File) => {
     const upload = await uploadPublicImage(file);
+    if (!upload.ok) {
+      // Sin feedback visual por ahora; queda para T-009.
+      console.error(upload.error);
+      return;
+    }
     methods.editBudgetInfo({
       footer_img_url: upload.path,
     });
@@ -211,7 +221,11 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                     />
                     <div className="print:hidden flex gap-3 relative mt-2">
                       <button
-                        onClick={() => saveService(service)}
+                        onClick={async () => {
+                          const result = await saveService(service);
+                          // Sin feedback visual por ahora; queda para T-009.
+                          if (!result.ok) console.error(result.error);
+                        }}
                         className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
                       >
                         <Save className="h-3 w-3" />

@@ -13,6 +13,7 @@ export function BudgetsSection({ budgets }: { budgets: Budget[] }) {
   const [budget, setSelectedBudget] = useState<Budget | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const filteredBudgets = useMemo(() => {
     return budgets.filter((b) => {
@@ -34,13 +35,22 @@ export function BudgetsSection({ budgets }: { budgets: Budget[] }) {
 
   const onDeleteBudgetClick = (budget: Budget) => {
     setSelectedBudget(budget);
+    setDeleteError(null);
     setOpen(true);
   };
 
   const onConfirmDelete = async () => {
     if (!budget) return;
 
-    await deleteBudget(budget);
+    const result = await deleteBudget(budget);
+    if (!result.ok) {
+      // El diálogo queda abierto mostrando el error (DeleteAlertDialog
+      // captura la excepción y no cierra).
+      setDeleteError(result.error);
+      throw new Error(result.error);
+    }
+
+    setDeleteError(null);
     setOpen(false);
   };
 
@@ -84,7 +94,17 @@ export function BudgetsSection({ budgets }: { budgets: Budget[] }) {
         onOpenChange={setOpen}
         onConfirm={onConfirmDelete}
         title={`Estás a punto de eliminar la cotización ${budget?.public_code} - ${budget?.client_name || "Sin Nombre"}`}
-        description="Esta acción eliminará permanentemente todos los ítems y condiciones asociadas."
+        description={
+          <>
+            Esta acción eliminará permanentemente todos los ítems y condiciones
+            asociados.
+            {deleteError && (
+              <span className="block mt-2 text-sm font-semibold text-rose-600">
+                {deleteError}
+              </span>
+            )}
+          </>
+        }
       />
     </>
   );

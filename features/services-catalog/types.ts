@@ -21,3 +21,8 @@ export type ServiceActionResult = { ok: true } | { ok: false; error: string };
 export type ServiceListResult =
   | { ok: true; data: Service[] }
   | { ok: false; error: string };
+
+/** Resultado tipado de "Guardar este servicio" (alta en el catálogo). */
+export type ServiceCreateResult =
+  | { ok: true; data: Service }
+  | { ok: false; error: string };

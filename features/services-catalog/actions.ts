@@ -2,7 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { Service, ServiceSchema, ServiceActionResult, ServiceListResult } from "./types";
+import {
+  Service,
+  ServiceSchema,
+  ServiceActionResult,
+  ServiceCreateResult,
+  ServiceListResult,
+} from "./types";
 
 // La ruta lleva el route group porque revalidatePath se etiqueta contra
 // `definition.page` (que conserva `(budget)`), no contra la URL visible.
@@ -36,13 +42,15 @@ export async function getServices(): Promise<ServiceListResult> {
   return { ok: true, data: (data || []) as Service[] };
 }
 
-export async function saveService(service: Partial<Service>) {
+export async function saveService(
+  service: Partial<Service>,
+): Promise<ServiceCreateResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("Usuario no autenticado");
+  if (!user) return { ok: false, error: "Usuario no autenticado." };
 
   const { id, ...cleanData } = service;
 
@@ -58,11 +66,20 @@ export async function saveService(service: Partial<Service>) {
     .single();
 
   if (error) {
-    throw new Error("Error al guardar el servicio: " + error.message);
+    return {
+      ok: false,
+      error: "No se pudo guardar el servicio: " + error.message,
+    };
+  }
+
+  const parsed = ServiceSchema.safeParse(data);
+  if (!parsed.success) {
+    console.error("Servicio inválido tras guardar:", parsed.error.issues);
+    return { ok: false, error: "El servicio guardado tiene datos inválidos." };
   }
 
   revalidateEditor();
-  return ServiceSchema.parse(data);
+  return { ok: true, data: parsed.data };
 }
 
 export async function updateService(

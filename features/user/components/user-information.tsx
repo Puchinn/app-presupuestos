@@ -8,7 +8,7 @@ import { updateUser } from "../actions";
 import { uploadPublicImage } from "@/lib/storage";
 import { getPublicStorageUrl } from "@/lib/utils";
 
-type Status = "saved" | "saving" | "unsaved";
+type Status = "saved" | "saving" | "unsaved" | "error";
 
 export function UserInformation({ user }: { user: UserInfo }) {
   const [formData, setFormData] = useState<UserInfo>(user);
@@ -20,8 +20,8 @@ export function UserInformation({ user }: { user: UserInfo }) {
 
   const handleSaveChanges = async () => {
     setSaveStatus("saving");
-    await updateUser(formData);
-    setSaveStatus("saved");
+    const result = await updateUser(formData);
+    setSaveStatus(result.ok ? "saved" : "error");
   };
 
   // sync data
@@ -84,7 +84,11 @@ function ProfileHeader({ saveStatus, handleSubmit }: ProfileHeaderProps) {
         >
           <Save className="w-4 h-4" />
           <span>
-            {saveStatus === "saving" ? "Guardando..." : "Guardar cambios"}
+            {saveStatus === "saving"
+              ? "Guardando..."
+              : saveStatus === "error"
+                ? "No se pudo guardar"
+                : "Guardar cambios"}
           </span>
         </button>
       </div>
@@ -165,17 +169,31 @@ function IdentitySection({ formData, handleChange }: SectionsProps) {
 
 function ImagesSection({ formData, handleChange }: SectionsProps) {
   const updateLogo = async (file: File) => {
-    const { path } = await uploadPublicImage(file);
-    await updateUser({
-      logo_url: path,
+    const upload = await uploadPublicImage(file);
+    if (!upload.ok) {
+      // Sin feedback visual por ahora; queda para T-009.
+      console.error(upload.error);
+      return;
+    }
+    const result = await updateUser({
+      logo_url: upload.path,
     });
+    // Sin feedback visual por ahora; queda para T-009.
+    if (!result.ok) console.error(result.error);
   };
 
   const updateFooterImage = async (file: File) => {
-    const { path } = await uploadPublicImage(file);
-    await updateUser({
-      footer_image_url: path,
+    const upload = await uploadPublicImage(file);
+    if (!upload.ok) {
+      // Sin feedback visual por ahora; queda para T-009.
+      console.error(upload.error);
+      return;
+    }
+    const result = await updateUser({
+      footer_image_url: upload.path,
     });
+    // Sin feedback visual por ahora; queda para T-009.
+    if (!result.ok) console.error(result.error);
   };
 
   return (

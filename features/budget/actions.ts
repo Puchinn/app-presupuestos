@@ -1,7 +1,16 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { Budget, SentStatus } from "@/features/budget/types";
+import type {
+  Budget,
+  BudgetActionResult,
+  BudgetIdResult,
+  BudgetListResult,
+  BudgetResult,
+  BudgetUrlResult,
+  ChangeSentStatusResult,
+  SentStatus,
+} from "@/features/budget/types";
 import {
   BudgetSchema,
   ListBudgetSchema,
@@ -12,38 +21,53 @@ import { DEFAULT_BUDGET } from "@/lib/default_budget";
 import { revalidatePath } from "next/cache";
 import { getUser } from "../user/actions";
 
-export async function getUserBudgets(): Promise<Budget[]> {
+export async function getUserBudgets(): Promise<BudgetListResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const user_id = user?.id;
-  if (!user_id) return [];
+  if (!user) {
+    return {
+      ok: false,
+      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
 
   const { data, error } = await supabase
     .from("budgets")
     .select("*")
-    .eq("user_id", user_id)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   if (error) {
     console.error("Error al obtener presupuestos:", error.message);
-    return [];
+    return { ok: false, error: "No se pudieron leer tus presupuestos." };
   }
 
-  return ListBudgetSchema.parse(data);
+  const parsed = ListBudgetSchema.safeParse(data);
+  if (!parsed.success) {
+    console.error("Presupuestos inválidos:", parsed.error.issues);
+    return { ok: false, error: "Tus presupuestos tienen datos inválidos." };
+  }
+
+  return { ok: true, data: parsed.data };
 }
 
-export async function getById(id: string): Promise<Budget | null> {
-  if (!id) return null;
+export async function getById(id: string): Promise<BudgetResult> {
+  if (!id) return { ok: false, error: "Falta el identificador del presupuesto." };
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    return {
+      ok: false,
+      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
 
   const { data, error } = await supabase
     .from("budgets")
@@ -52,23 +76,36 @@ export async function getById(id: string): Promise<Budget | null> {
     .eq("user_id", user.id)
     .single();
 
-  if (error) {
-    console.error("Error al obtener presupuesto por id:", error.message);
-    return null;
+  if (error || !data) {
+    console.error("Error al obtener presupuesto por id:", error?.message ?? "sin datos");
+    return { ok: false, error: "No se pudo leer el presupuesto." };
   }
 
-  return UIBudgetSchema.parse(data);
+  const parsed = UIBudgetSchema.safeParse(data);
+  if (!parsed.success) {
+    console.error("Presupuesto inválido:", parsed.error.issues);
+    return { ok: false, error: "El presupuesto tiene datos inválidos." };
+  }
+
+  return { ok: true, data: parsed.data };
 }
 
-export async function createNewBudget(): Promise<string> {
+export async function createNewBudget(): Promise<BudgetIdResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("Usuario no autenticado");
+  if (!user) {
+    return {
+      ok: false,
+      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
 
-  const userInfo = await getUser();
+  const userInfoResult = await getUser();
+  if (!userInfoResult.ok) return userInfoResult;
+  const userInfo = userInfoResult.data;
 
   // Omitimos id para que PostgreSQL genere el UUID automáticamente
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -98,35 +135,52 @@ export async function createNewBudget(): Promise<string> {
     .single();
 
   if (error) {
-    throw new Error("Error al crear presupuesto: " + error.message);
+    console.error("Error al crear presupuesto:", error.message);
+    return { ok: false, error: "No se pudo crear el presupuesto. Intenta de nuevo." };
   }
 
-  return data.id;
+  return { ok: true, id: data.id };
 }
 
-export async function updateBudget(budget: Partial<Budget>) {
+export async function updateBudget(
+  budget: Partial<Budget>,
+): Promise<BudgetActionResult> {
   const supabase = await createClient();
 
   // Omitimos sent_status: esa columna solo la escribe changeSentStatus.
   // No usamos .partial() ni .optional() porque en Zod 4 el .default() del schema
   // se sigue aplicando y rellenaría sent_status con "draft", pisando el valor real.
-  const parsed = BudgetSchema.omit({ sent_status: true }).parse(budget);
+  const parsed = BudgetSchema.omit({ sent_status: true }).safeParse(budget);
+  if (!parsed.success) {
+    console.error("Presupuesto inválido al guardar:", parsed.error.issues);
+    return { ok: false, error: "Los datos del presupuesto no son válidos." };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
 
   const { error } = await supabase
     .from("budgets")
-    .update(parsed)
-    .eq("id", budget.id);
+    .update(parsed.data)
+    .eq("id", budget.id)
+    .eq("user_id", user.id);
 
   if (error) {
-    console.log(error);
-    throw "aaaca capo";
+    console.error("Error al guardar el presupuesto:", error.message);
+    return { ok: false, error: "No se pudieron guardar los cambios. Intenta de nuevo." };
   }
 
   revalidatePath(`/edit/${budget.id}`);
 
-  return {
-    success: true,
-  };
+  return { ok: true };
 }
 
 /**
@@ -137,7 +191,7 @@ export async function updateBudget(budget: Partial<Budget>) {
 export async function changeSentStatus(
   budgetId: string,
   sentStatus: SentStatus,
-): Promise<{ ok: true; sent_status: SentStatus } | { ok: false; error: string }> {
+): Promise<ChangeSentStatusResult> {
   if (!budgetId) return { ok: false, error: "Falta el identificador del presupuesto." };
 
   const parsedStatus = SentStatusSchema.safeParse(sentStatus);
@@ -179,15 +233,20 @@ export async function changeSentStatus(
   return { ok: true, sent_status: parsedStatus.data };
 }
 
-export async function saveBudget(budget: Budget) {
-  if (!budget.id) return;
+export async function saveBudget(budget: Budget): Promise<BudgetActionResult> {
+  if (!budget.id) return { ok: false, error: "Falta el identificador del presupuesto." };
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("Usuario no autenticado");
+  if (!user) {
+    return {
+      ok: false,
+      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
 
   const { error } = await supabase
     .from("budgets")
@@ -210,18 +269,49 @@ export async function saveBudget(budget: Budget) {
     .eq("user_id", user.id);
 
   if (error) {
-    throw new Error("Error al guardar presupuesto: " + error.message);
+    console.error("Error al guardar presupuesto:", error.message);
+    return { ok: false, error: "No se pudo guardar el presupuesto. Intenta de nuevo." };
   }
 
   revalidatePath(`/edit/${budget.id}`);
+
+  return { ok: true };
 }
 
-export async function deleteBudget(budget: Budget) {
-  const supabase = await createClient();
+export async function deleteBudget(budget: Budget): Promise<BudgetActionResult> {
+  if (!budget.id) return { ok: false, error: "Falta el identificador del presupuesto." };
 
-  await supabase.from("budgets").delete().eq("id", budget.id);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("budgets")
+    .delete()
+    .eq("id", budget.id)
+    .eq("user_id", user.id)
+    .select("id");
+
+  if (error) {
+    console.error("Error al eliminar presupuesto:", error.message);
+    return { ok: false, error: "No se pudo eliminar el presupuesto. Intenta de nuevo." };
+  }
+
+  if (!data || data.length === 0) {
+    return { ok: false, error: "El presupuesto ya no existe o no tienes permiso para eliminarlo." };
+  }
 
   revalidatePath("/");
+
+  return { ok: true };
 }
 
 /**
@@ -229,22 +319,29 @@ export async function deleteBudget(budget: Budget) {
  * Puedes enriquecer o refactorizar este flujo para usar una función Postgres RPC
  * o gestionar la secuencia de forma atómica y concurrente.
  */
-export async function emitBudget(budget: Budget) {
+export async function emitBudget(budget: Budget): Promise<BudgetResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("Usuario no autenticado");
-  if (budget.status === "issued") return budget;
+  if (!user) {
+    return {
+      ok: false,
+      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
+  if (budget.status === "issued") return { ok: true, data: budget };
 
   // 1. Obtener perfil actual y secuencia
-  const profile = await getUser();
+  const profileResult = await getUser();
+  if (!profileResult.ok) return profileResult;
+  const profile = profileResult.data;
   const currentSequence = profile.counters?.budget_sequence ?? 0;
   const nextSequence = currentSequence + 1;
 
   // 2. Incrementar contador en el perfil
-  await supabase
+  const { error: counterError } = await supabase
     .from("profiles")
     .update({
       counters: {
@@ -253,6 +350,11 @@ export async function emitBudget(budget: Budget) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", user.id);
+
+  if (counterError) {
+    console.error("Error al incrementar el contador:", counterError.message);
+    return { ok: false, error: "No se pudo preparar la emisión. Intenta de nuevo." };
+  }
 
   // 3. Generar código público formateado (PRE-2026-00X)
   const paddedSequence = String(nextSequence).padStart(3, "0");
@@ -282,67 +384,106 @@ export async function emitBudget(budget: Budget) {
     .eq("user_id", user.id);
 
   if (error) {
-    throw new Error("Error al emitir el presupuesto: " + error.message);
+    console.error("Error al emitir el presupuesto:", error.message);
+    return { ok: false, error: "No se pudo emitir el presupuesto. Intenta de nuevo." };
   }
 
   revalidatePath(`/edit/${budget.id}`);
-  return updatedBudget;
+  return { ok: true, data: updatedBudget };
 }
 
-export async function changeLogoUrl(file: File, budget_id: string) {
+export async function changeLogoUrl(
+  file: File,
+  budget_id: string,
+): Promise<BudgetUrlResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    return {
+      ok: false,
+      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
+
   const { data, error } = await supabase.storage
     .from("public_images")
-    .upload(`/${user?.id}/${Date.now()}-${file.name}`, file, {
+    .upload(`/${user.id}/${Date.now()}-${file.name}`, file, {
       upsert: true,
     });
 
-  if (error) throw error.message;
+  if (error) {
+    console.error("Error al subir el logo:", error.message);
+    return { ok: false, error: "No se pudo subir el logo. Intenta de nuevo." };
+  }
 
   const {
     data: { publicUrl },
   } = supabase.storage.from("public_images").getPublicUrl(data.path);
 
-  await supabase
+  const { error: updateError } = await supabase
     .from("budgets")
     .update({
       logo_url: publicUrl,
     })
-    .eq("id", budget_id);
+    .eq("id", budget_id)
+    .eq("user_id", user.id);
+
+  if (updateError) {
+    console.error("Error al guardar el logo:", updateError.message);
+    return { ok: false, error: "No se pudo guardar el logo. Intenta de nuevo." };
+  }
 
   revalidatePath(`/edit`);
-  return publicUrl;
+  return { ok: true, url: publicUrl };
 }
 
-export async function changeFooterUrl(file: File, budget_id: string) {
+export async function changeFooterUrl(
+  file: File,
+  budget_id: string,
+): Promise<BudgetUrlResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    return {
+      ok: false,
+      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
+
   const { data, error } = await supabase.storage
     .from("public_images")
-    .upload(`/${user?.id}/${Date.now()}-${file.name}`, file, {
+    .upload(`/${user.id}/${Date.now()}-${file.name}`, file, {
       upsert: true,
     });
 
-  if (error) throw error.message;
+  if (error) {
+    console.error("Error al subir la imagen del pie:", error.message);
+    return { ok: false, error: "No se pudo subir la imagen del pie. Intenta de nuevo." };
+  }
 
   const {
     data: { publicUrl },
   } = supabase.storage.from("public_images").getPublicUrl(data.path);
 
-  await supabase
+  const { error: updateError } = await supabase
     .from("budgets")
     .update({
       footer_img_url: publicUrl,
     })
-    .eq("id", budget_id);
+    .eq("id", budget_id)
+    .eq("user_id", user.id);
+
+  if (updateError) {
+    console.error("Error al guardar la imagen del pie:", updateError.message);
+    return { ok: false, error: "No se pudo guardar la imagen del pie. Intenta de nuevo." };
+  }
 
   revalidatePath(`/edit`);
-  return publicUrl;
+  return { ok: true, url: publicUrl };
 }

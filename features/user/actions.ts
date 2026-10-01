@@ -3,19 +3,25 @@
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { UserInfo, UserInfoSchema } from "./types";
+import { LoginResult, UserInfo, UserInfoSchema, UserResult } from "./types";
 
 interface Props {
   email: string;
   password: string;
 }
 
-export async function logIn(form: Props) {
+export async function logIn(form: Props): Promise<LoginResult> {
   const supabase = await createSupabaseServerClient();
 
   const { error } = await supabase.auth.signInWithPassword(form);
 
-  if (error) return error;
+  if (error) {
+    console.error("Error al iniciar sesión:", error.message);
+    return {
+      ok: false,
+      error: "No se pudo iniciar sesión. Verificá tu correo electrónico y contraseña e intentá nuevamente.",
+    };
+  }
 
   redirect("/");
 }
@@ -28,42 +34,78 @@ export async function logOut() {
   redirect("/login");
 }
 
-export async function getUser() {
+export async function getUser(): Promise<UserResult> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
     error,
   } = await supabase.auth.getUser();
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error al leer la sesión:", error.message);
+    return {
+      ok: false,
+      error: "No se pudo leer tu sesión. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
 
-  const { data, success } = await supabase
+  const { data, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user?.id)
     .single();
 
-  if (!success) throw "No se pudo encontrar el usuario";
+  if (profileError || !data) {
+    console.error(
+      "Error al obtener el perfil:",
+      profileError?.message ?? "sin datos",
+    );
+    return { ok: false, error: "No se pudo cargar tu perfil." };
+  }
 
-  return UserInfoSchema.parse(data);
+  const parsed = UserInfoSchema.safeParse(data);
+  if (!parsed.success) {
+    console.error("Perfil inválido:", parsed.error.issues);
+    return { ok: false, error: "Tu perfil tiene datos inválidos." };
+  }
+
+  return { ok: true, data: parsed.data };
 }
 
-export async function updateUser(user_data: Partial<UserInfo>) {
+export async function updateUser(
+  user_data: Partial<UserInfo>,
+): Promise<UserResult> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    return {
+      ok: false,
+      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
+  }
+
   const { data, error } = await supabase
     .from("profiles")
     .update(user_data)
-    .eq("id", user?.id)
+    .eq("id", user.id)
     .select("*")
     .single();
 
-  if (error) throw error;
+  if (error || !data) {
+    console.error("Error al actualizar el perfil:", error?.message ?? "sin datos");
+    return { ok: false, error: "No se pudieron guardar tus cambios. Intenta de nuevo." };
+  }
+
+  const parsed = UserInfoSchema.safeParse(data);
+  if (!parsed.success) {
+    console.error("Perfil inválido tras guardar:", parsed.error.issues);
+    return { ok: false, error: "Tus cambios se guardaron pero el perfil quedó inválido." };
+  }
 
   revalidatePath("/");
 
-  return UserInfoSchema.parse(data);
+  return { ok: true, data: parsed.data };
 }

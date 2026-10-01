@@ -33,6 +33,9 @@ export function DeleteAlertDialog({
       setLoading(true);
       await onConfirm();
       onOpenChange(false);
+    } catch {
+      // onConfirm falló: el componente padre muestra el error y el
+      // diálogo queda abierto.
     } finally {
       setLoading(false);
     }

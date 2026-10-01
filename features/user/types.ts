@@ -22,3 +22,12 @@ export const UserInfoSchema = z.object({
 });
 
 export type UserInfo = z.infer<typeof UserInfoSchema>;
+
+// Resultado tipado de las server actions del dominio (convención de AGENTS.md):
+// nunca throw, siempre { ok } | { ok: false; error } con mensaje en español.
+export type UserResult =
+  | { ok: true; data: UserInfo }
+  | { ok: false; error: string };
+
+// En éxito logIn nunca resuelve: hace redirect("/") desde el servidor.
+export type LoginResult = { ok: true } | { ok: false; error: string };
