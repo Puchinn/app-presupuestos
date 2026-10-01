@@ -17,14 +17,41 @@ import { getPublicStorageUrl } from "@/lib/utils";
 import { createTextItem } from "@/features/text-item/actions";
 import { uploadPublicImage } from "@/lib/storage";
 
+type NoticeData = {
+  /** Clave del destino: "conditions", "budget_details", "logo", "footer" o el id del servicio. */
+  id: string;
+  type: "ok" | "error";
+  text: string;
+};
+
+function InlineNotice({
+  notice,
+  className = "",
+}: {
+  notice: NoticeData;
+  className?: string;
+}) {
+  return (
+    <p
+      role="status"
+      className={`print:hidden flex items-center gap-1.5 text-[11px] font-semibold ${
+        notice.type === "error" ? "text-rose-600" : "text-emerald-600"
+      } ${className}`}
+    >
+      {notice.type === "error" ? (
+        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+      ) : (
+        <Check className="w-3.5 h-3.5 shrink-0" />
+      )}
+      {notice.text}
+    </p>
+  );
+}
+
 export function BudgetEdit({ budget, methods }: HookReturn) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [saveNotice, setSaveNotice] = useState<{
-    campo: "conditions" | "budget_details";
-    type: "ok" | "error";
-    text: string;
-  } | null>(null);
+  const [notice, setNotice] = useState<NoticeData | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -36,14 +63,10 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
 
   const refresh = () => startTransition(() => router.refresh());
 
-  const showSaveNotice = (
-    campo: "conditions" | "budget_details",
-    type: "ok" | "error",
-    text: string,
-  ) => {
-    setSaveNotice({ campo, type, text });
+  const showNotice = (id: string, type: "ok" | "error", text: string) => {
+    setNotice({ id, type, text });
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
-    noticeTimer.current = setTimeout(() => setSaveNotice(null), 3000);
+    noticeTimer.current = setTimeout(() => setNotice(null), 3000);
   };
 
   const guardarTexto = async (campo: "conditions" | "budget_details") => {
@@ -51,7 +74,7 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
       campo === "conditions" ? budget.conditions : budget.budget_details;
     const result = await createTextItem(contenido);
     if (result.ok) refresh();
-    showSaveNotice(
+    showNotice(
       campo,
       result.ok ? "ok" : "error",
       result.ok ? "Fragmento guardado en la biblioteca." : result.error,
@@ -61,24 +84,24 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
   const changeLogo = async (file: File) => {
     const upload = await uploadPublicImage(file);
     if (!upload.ok) {
-      // Sin feedback visual por ahora; queda para T-009.
-      console.error(upload.error);
+      showNotice("logo", "error", upload.error);
       return;
     }
     methods.editBudgetInfo({
       logo_url: upload.path,
     });
+    showNotice("logo", "ok", "Logo actualizado.");
   };
   const changeFooterImage = async (file: File) => {
     const upload = await uploadPublicImage(file);
     if (!upload.ok) {
-      // Sin feedback visual por ahora; queda para T-009.
-      console.error(upload.error);
+      showNotice("footer", "error", upload.error);
       return;
     }
     methods.editBudgetInfo({
       footer_img_url: upload.path,
     });
+    showNotice("footer", "ok", "Imagen del pie actualizada.");
   };
 
   const clearImage = (prop: keyof Budget) => {
@@ -167,6 +190,12 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
         </header>
         {/* FIN HEADER */}
 
+        {notice?.id === "logo" && (
+          <div className="px-12 pt-4">
+            <InlineNotice notice={notice} />
+          </div>
+        )}
+
         <main className="px-12 py-12">
           {/* SERVICIOS */}
           <section className="mb-12">
@@ -219,18 +248,28 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                         methods.editService(service.id, { details: items })
                       }
                     />
-                    <div className="print:hidden flex gap-3 relative mt-2">
+                    <div className="print:hidden flex gap-3 relative mt-2 items-center">
                       <button
                         onClick={async () => {
                           const result = await saveService(service);
-                          // Sin feedback visual por ahora; queda para T-009.
-                          if (!result.ok) console.error(result.error);
+                          if (result.ok) {
+                            showNotice(
+                              service.id,
+                              "ok",
+                              "Servicio guardado en tu catálogo.",
+                            );
+                          } else {
+                            showNotice(service.id, "error", result.error);
+                          }
                         }}
                         className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
                       >
                         <Save className="h-3 w-3" />
                         Guardar este servicio{" "}
                       </button>
+                      {notice?.id === service.id && (
+                        <InlineNotice notice={notice} />
+                      )}
                     </div>
                   </div>
 
@@ -310,22 +349,8 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                   Guardar
                 </button>
               </div>
-              {saveNotice && saveNotice.campo === "conditions" && (
-                <p
-                  role="status"
-                  className={`print:hidden flex items-center gap-1.5 text-[11px] font-semibold mb-3 ${
-                    saveNotice.type === "error"
-                      ? "text-rose-600"
-                      : "text-emerald-600"
-                  }`}
-                >
-                  {saveNotice.type === "error" ? (
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  ) : (
-                    <Check className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  {saveNotice.text}
-                </p>
+              {notice?.id === "conditions" && (
+                <InlineNotice notice={notice} className="mb-3" />
               )}
               <EditableField
                 value={budget.conditions}
@@ -356,22 +381,8 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
                   Guardar
                 </button>
               </div>
-              {saveNotice && saveNotice.campo === "budget_details" && (
-                <p
-                  role="status"
-                  className={`print:hidden flex items-center gap-1.5 text-[11px] font-semibold mb-3 ${
-                    saveNotice.type === "error"
-                      ? "text-rose-600"
-                      : "text-emerald-600"
-                  }`}
-                >
-                  {saveNotice.type === "error" ? (
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  ) : (
-                    <Check className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  {saveNotice.text}
-                </p>
+              {notice?.id === "budget_details" && (
+                <InlineNotice notice={notice} className="mb-3" />
               )}
               <EditableField
                 value={budget.budget_details}
@@ -391,12 +402,15 @@ export function BudgetEdit({ budget, methods }: HookReturn) {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-5">
               {settings.show_footer_url && (
-                <ImageUpload
-                  onUpload={changeFooterImage}
-                  size={80}
-                  defaultSrc={getPublicStorageUrl(budget.footer_img_url)}
-                  onDeleteImage={() => clearImage("footer_img_url")}
-                />
+                <div className="space-y-2">
+                  <ImageUpload
+                    onUpload={changeFooterImage}
+                    size={80}
+                    defaultSrc={getPublicStorageUrl(budget.footer_img_url)}
+                    onDeleteImage={() => clearImage("footer_img_url")}
+                  />
+                  {notice?.id === "footer" && <InlineNotice notice={notice} />}
+                </div>
               )}
               <div>
                 <p className="text-sm text-muted-foreground mb-1">

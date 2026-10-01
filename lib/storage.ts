@@ -18,7 +18,8 @@ export async function uploadPublicImage(
   if (!user) {
     return {
       ok: false,
-      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
 
@@ -29,7 +30,11 @@ export async function uploadPublicImage(
     });
 
   if (error) {
-    console.error("Error al subir el archivo:", error.message);
+    console.error(
+      "Error al subir el archivo:",
+      error.message,
+      error.statusCode,
+    );
     return {
       ok: false,
       error: "Ocurrió un error al subir el archivo. Intenta de nuevo.",

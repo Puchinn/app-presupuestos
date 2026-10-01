@@ -30,7 +30,8 @@ export async function getUserBudgets(): Promise<BudgetListResult> {
   if (!user) {
     return {
       ok: false,
-      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
 
@@ -55,7 +56,8 @@ export async function getUserBudgets(): Promise<BudgetListResult> {
 }
 
 export async function getById(id: string): Promise<BudgetResult> {
-  if (!id) return { ok: false, error: "Falta el identificador del presupuesto." };
+  if (!id)
+    return { ok: false, error: "Falta el identificador del presupuesto." };
 
   const supabase = await createClient();
   const {
@@ -65,7 +67,8 @@ export async function getById(id: string): Promise<BudgetResult> {
   if (!user) {
     return {
       ok: false,
-      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
 
@@ -77,7 +80,15 @@ export async function getById(id: string): Promise<BudgetResult> {
     .single();
 
   if (error || !data) {
-    console.error("Error al obtener presupuesto por id:", error?.message ?? "sin datos");
+    // PGRST116 = .single() no encontró filas (no existe o RLS lo oculta);
+    // el resto son fallos de lectura reales.
+    if (error?.code === "PGRST116") {
+      return {
+        ok: false,
+        error:
+          "No encontramos ese presupuesto. Puede que haya sido eliminado o no tengas permiso para verlo.",
+      };
+    }
     return { ok: false, error: "No se pudo leer el presupuesto." };
   }
 
@@ -99,7 +110,8 @@ export async function createNewBudget(): Promise<BudgetIdResult> {
   if (!user) {
     return {
       ok: false,
-      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
 
@@ -136,7 +148,10 @@ export async function createNewBudget(): Promise<BudgetIdResult> {
 
   if (error) {
     console.error("Error al crear presupuesto:", error.message);
-    return { ok: false, error: "No se pudo crear el presupuesto. Intenta de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudo crear el presupuesto. Intenta de nuevo.",
+    };
   }
 
   return { ok: true, id: data.id };
@@ -163,7 +178,8 @@ export async function updateBudget(
   if (!user) {
     return {
       ok: false,
-      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
 
@@ -175,7 +191,10 @@ export async function updateBudget(
 
   if (error) {
     console.error("Error al guardar el presupuesto:", error.message);
-    return { ok: false, error: "No se pudieron guardar los cambios. Intenta de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudieron guardar los cambios. Intenta de nuevo.",
+    };
   }
 
   revalidatePath(`/edit/${budget.id}`);
@@ -192,7 +211,8 @@ export async function changeSentStatus(
   budgetId: string,
   sentStatus: SentStatus,
 ): Promise<ChangeSentStatusResult> {
-  if (!budgetId) return { ok: false, error: "Falta el identificador del presupuesto." };
+  if (!budgetId)
+    return { ok: false, error: "Falta el identificador del presupuesto." };
 
   const parsedStatus = SentStatusSchema.safeParse(sentStatus);
   if (!parsedStatus.success) {
@@ -205,7 +225,11 @@ export async function changeSentStatus(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { ok: false, error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo." };
+    return {
+      ok: false,
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+    };
   }
 
   const { data, error } = await supabase
@@ -220,11 +244,18 @@ export async function changeSentStatus(
 
   if (error) {
     console.error("Error al cambiar el estado del presupuesto:", error.message);
-    return { ok: false, error: "No se pudo cambiar el estado del presupuesto. Intenta de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudo cambiar el estado del presupuesto. Intenta de nuevo.",
+    };
   }
 
   if (!data || data.length === 0) {
-    return { ok: false, error: "No se encontró el presupuesto o no tienes permiso para modificarlo." };
+    return {
+      ok: false,
+      error:
+        "No se encontró el presupuesto o no tienes permiso para modificarlo.",
+    };
   }
 
   revalidatePath("/");
@@ -234,7 +265,8 @@ export async function changeSentStatus(
 }
 
 export async function saveBudget(budget: Budget): Promise<BudgetActionResult> {
-  if (!budget.id) return { ok: false, error: "Falta el identificador del presupuesto." };
+  if (!budget.id)
+    return { ok: false, error: "Falta el identificador del presupuesto." };
 
   const supabase = await createClient();
   const {
@@ -244,7 +276,8 @@ export async function saveBudget(budget: Budget): Promise<BudgetActionResult> {
   if (!user) {
     return {
       ok: false,
-      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
 
@@ -270,7 +303,10 @@ export async function saveBudget(budget: Budget): Promise<BudgetActionResult> {
 
   if (error) {
     console.error("Error al guardar presupuesto:", error.message);
-    return { ok: false, error: "No se pudo guardar el presupuesto. Intenta de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudo guardar el presupuesto. Intenta de nuevo.",
+    };
   }
 
   revalidatePath(`/edit/${budget.id}`);
@@ -278,8 +314,11 @@ export async function saveBudget(budget: Budget): Promise<BudgetActionResult> {
   return { ok: true };
 }
 
-export async function deleteBudget(budget: Budget): Promise<BudgetActionResult> {
-  if (!budget.id) return { ok: false, error: "Falta el identificador del presupuesto." };
+export async function deleteBudget(
+  budget: Budget,
+): Promise<BudgetActionResult> {
+  if (!budget.id)
+    return { ok: false, error: "Falta el identificador del presupuesto." };
 
   const supabase = await createClient();
   const {
@@ -289,7 +328,8 @@ export async function deleteBudget(budget: Budget): Promise<BudgetActionResult> 
   if (!user) {
     return {
       ok: false,
-      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
 
@@ -302,11 +342,17 @@ export async function deleteBudget(budget: Budget): Promise<BudgetActionResult> 
 
   if (error) {
     console.error("Error al eliminar presupuesto:", error.message);
-    return { ok: false, error: "No se pudo eliminar el presupuesto. Intenta de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudo eliminar el presupuesto. Intenta de nuevo.",
+    };
   }
 
   if (!data || data.length === 0) {
-    return { ok: false, error: "El presupuesto ya no existe o no tienes permiso para eliminarlo." };
+    return {
+      ok: false,
+      error: "El presupuesto ya no existe o no tienes permiso para eliminarlo.",
+    };
   }
 
   revalidatePath("/");
@@ -328,7 +374,8 @@ export async function emitBudget(budget: Budget): Promise<BudgetResult> {
   if (!user) {
     return {
       ok: false,
-      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
   if (budget.status === "issued") return { ok: true, data: budget };
@@ -353,7 +400,10 @@ export async function emitBudget(budget: Budget): Promise<BudgetResult> {
 
   if (counterError) {
     console.error("Error al incrementar el contador:", counterError.message);
-    return { ok: false, error: "No se pudo preparar la emisión. Intenta de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudo preparar la emisión. Intenta de nuevo.",
+    };
   }
 
   // 3. Generar código público formateado (PRE-2026-00X)
@@ -385,7 +435,10 @@ export async function emitBudget(budget: Budget): Promise<BudgetResult> {
 
   if (error) {
     console.error("Error al emitir el presupuesto:", error.message);
-    return { ok: false, error: "No se pudo emitir el presupuesto. Intenta de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudo emitir el presupuesto. Intenta de nuevo.",
+    };
   }
 
   revalidatePath(`/edit/${budget.id}`);
@@ -404,7 +457,8 @@ export async function changeLogoUrl(
   if (!user) {
     return {
       ok: false,
-      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
 
@@ -433,7 +487,10 @@ export async function changeLogoUrl(
 
   if (updateError) {
     console.error("Error al guardar el logo:", updateError.message);
-    return { ok: false, error: "No se pudo guardar el logo. Intenta de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudo guardar el logo. Intenta de nuevo.",
+    };
   }
 
   revalidatePath(`/edit`);
@@ -452,7 +509,8 @@ export async function changeFooterUrl(
   if (!user) {
     return {
       ok: false,
-      error: "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      error:
+        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
     };
   }
 
@@ -464,7 +522,10 @@ export async function changeFooterUrl(
 
   if (error) {
     console.error("Error al subir la imagen del pie:", error.message);
-    return { ok: false, error: "No se pudo subir la imagen del pie. Intenta de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudo subir la imagen del pie. Intenta de nuevo.",
+    };
   }
 
   const {
@@ -481,7 +542,10 @@ export async function changeFooterUrl(
 
   if (updateError) {
     console.error("Error al guardar la imagen del pie:", updateError.message);
-    return { ok: false, error: "No se pudo guardar la imagen del pie. Intenta de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudo guardar la imagen del pie. Intenta de nuevo.",
+    };
   }
 
   revalidatePath(`/edit`);

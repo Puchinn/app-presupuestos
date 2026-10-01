@@ -3,7 +3,7 @@
 > Este archivo lo lee y lo mantiene el agente. `AGENTS.md` tiene las reglas estables; aquí va lo que cambia.
 > Si hay contradicción entre ambos, manda `AGENTS.md`. Ver "Protocolo de MEMORY.md" allí.
 
-Última actualización: 2026-10-01 (T-008 hecha: server actions con resultado tipado; mantenida por el agente)
+Última actualización: 2026-10-01 (T-009 hecha: ErrorState + avisos efímeros; creada T-020 para loading/error.tsx)
 
 ## 1. Estado actual
 
@@ -44,9 +44,6 @@ Las tareas se hacen de a una y con plan aprobado. El orden sugerido es de arriba
   Requiere decidir mecanismo de acceso y ajustar `proxy.ts` y RLS. Necesita migración: pedir aprobación. Ver Preguntas abiertas.
 - **T-007** · Versión pública sin login que usa `localStorage` · pendiente
   Editor separado, sin Supabase. No debe tocar `useBudget` ni la persistencia actual. Requiere plan detallado antes de empezar.
-- **T-008** · Manejo de errores en server actions (reemplazar `throw` por resultado tipado) · **hecha 2026-10-01** (plan y resumen en §2 "Hechas")
-- **T-009** · Estados de carga y UI de error/vacío · pendiente
-  Aplicar en dashboard, editor y perfil. Puede hacerse junto con T-008.
 - **T-014** · Moneda, IVA, descuento y plazo de entrega · pendiente (diferida)
   Decidido: se difiere todo a T-014 y **mientras tanto se quitan esos controles de la UI** (hecho en T-015, 2026-09-30). El plazo de entrega probablemente sea `dates.estimated`. Cuando se retome: migración/schema y efecto en totales y PDF.
 - **T-016** · Emisión: validación en servidor y checklist en dos niveles · pendiente
@@ -55,12 +52,24 @@ Las tareas se hacen de a una y con plan aprobado. El orden sugerido es de arriba
   Decidido: **borrar `BankSection`**; los campos Mock pasan a columnas reales (estudio, CUIT, ciudad) → migración de `profiles` + `UserInfoSchema`; **email de solo lectura** desde `auth`; **`avatar_url` fuera** del formulario (la columna existe en DB y no se toca). Toca también el copy que promete datos bancarios.
 - **T-019** · Presupuestos emitidos (`status === "issued"`): editor de solo lectura + marca de agua · pendiente (prioridad alta)
   Hoy el botón "Emitir presupuesto" (`header-status.tsx`) no tiene `onClick`, así que **no se puede emitir desde la UI**. **T-016 y T-019 se implementan juntas** (no emitir sin bloquear la edición). Cuando `status === "issued"`, `/edit/[id]` debe ser de solo lectura (campos, servicios, participantes, fechas) y la marca de agua "Emitido" debe mostrarse **también en el editor**, no solo en el PDF. El bloqueo debe validarse también en el **servidor**: `updateBudget` rechaza los cambios cuando `status === "issued"`.
+- **T-020** · `loading.tsx` y `error.tsx` por ruta · pendiente
+  Creada 2026-10-01 al aprobar T-009 (decisión del dueño: tratarlos en otra tarea). Incluye reescribir `app/(budget)/loading.tsx` (hoy muestra `"loadingg"`, ver §5), crear `app/(dashboard)/loading.tsx` (skeleton del dashboard) y los `error.tsx` de `(dashboard)` y `(budget)`. `app/(dashboard)/profile/loading.tsx` ya existe y está bien.
 
 ### En curso
 
 _(ninguna)_
 
 ### Hechas
+
+- **T-009** · Estados de carga y UI de error/vacío · hecha 2026-10-01
+  Plan aprobado 2026-10-01 (respuestas del dueño):
+  - **Objetivo:** dashboard, editor y perfil distinguen error de vacío y ofrecen reintento; los `console.error` que T-008 dejó pendientes pasan a feedback visible.
+  - **Archivos:** crear `components/ui/error-state.tsx`; modificar `app/(dashboard)/page.tsx`, `app/(dashboard)/profile/page.tsx`, `app/(budget)/edit/[id]/page.tsx`, `features/budget/actions.ts` (`getById`), `features/budget/components/budget-banner.tsx`, `features/budget/components/budget-edit.tsx`, `features/user/components/user-information.tsx`, `app/(budget)/new-budget/page.tsx` y `components/layout/app-header.tsx` (solo comentarios T-009), `MEMORY.md`. Sin migraciones ni dependencias.
+  - **Decisiones del dueño:** (1) `loading.tsx`/`error.tsx` por ruta → **otra tarea (T-020)**; (2) `budget-banner` en fallo → **opción B** (se mantiene y reemplaza los KPIs afectados por un aviso compacto con "Reintentar"); (3) `getById` **distingue** "no existe/sin permiso" (0 filas) de error de lectura; (4) avisos efímeros de **éxito y error** (3 s) en subidas de imagen y "Guardar este servicio".
+  - **Fuera de alcance:** `loading.tsx` y `error.tsx` (T-020), sidebar (ya tiene sus estados desde T-011/T-012/T-013b), `app-header` (la omisión del saludo en fallo es degradación aceptada), `new-budget` (ya tiene mensaje + link).
+  - **Verificación:** `tsc`, `lint` contra la línea base, `build`; sin prueba en navegador.
+    Hecho 2026-10-01: nuevo `components/ui/error-state.tsx` (`ErrorState`: `role="alert"`, botón "Reintentar" vía `router.refresh()` en `useTransition`, acción secundaria opcional y variante `compact`); dashboard, `/profile` y `/edit/[id]` reemplazan su manejo mínimo por `ErrorState` (el editor también pierde el string crudo `"No se encontro el documento."` y muestra el mensaje puntual de `getById`); `budget-banner` en fallo reemplaza la línea de conteo y los KPIs por el aviso compacto con reintento manteniendo saludo y CTA; `budget-edit.tsx` unifica los avisos en `notice` + `InlineNotice` (local, 3 s, limpieza de timer) y los suma a logo, pie y "Guardar este servicio" con éxito **y** error; `user-information.tsx` hace lo mismo para las dos subidas de imagen en `ImagesSection`; comentarios T-009 limpiados en `new-budget` y `app-header`.
+    Verificado con `tsc --noEmit`, `lint` (línea base, sin errores ni warnings nuevos) y `build`; **no** se probó en el navegador.
 
 - **T-008** · Manejo de errores en server actions (resultado tipado) · hecha 2026-10-01
   Plan aprobado 2026-10-01 (respuestas del dueño):
@@ -215,11 +224,15 @@ Formato: fecha · decisión · porqué.
 - 2026-10-01 · T-008: los tipos de resultado van en el `types.ts` de cada feature (patrón ya usado), **sin** crear un genérico compartido en `lib/`. · Consistencia con `ServiceActionResult`, `TextActionResult` y `ClientActionResult`.
 - 2026-10-01 · T-008: `updateBudget` y `deleteBudget` ahora filtran por `user_id` además del RLS; `deleteBudget` usa `.select()` para detectar 0 filas (patrón de `deleteService`). · Defensa en profundidad y para poder responder "ya no existe" cuando RLS devuelve vacío.
 - 2026-10-01 · Formato canónico de imágenes en storage = **path relativo** (lo guardan perfil y editor vía `uploadPublicImage`); `getPublicStorageUrl()` solo se aplica sobre paths. · El doble prefijo nació de guardar la URL completa en una columna y prefijarla de nuevo.
+- 2026-10-01 · T-009: los `loading.tsx`/`error.tsx` por ruta se sacan de T-009 y quedan en **T-020**. · Decisión del dueño al aprobar el plan.
+- 2026-10-01 · T-009: `budget-banner` en fallo de presupuestos → **opción B**: se mantiene el banner (saludo + CTA) y la línea de conteo y los KPIs se reemplazan por un aviso compacto con "Reintentar". · Un cero en los KPIs miente sobre el estado real de la cuenta.
+- 2026-10-01 · T-009: `getById` distingue **0 filas** (`.single()` con código `PGRST116` → "no encontramos ese presupuesto") de un error de lectura real. · "No existe/sin permiso" y "falló la conexión" piden respuestas distintas en la UI.
+- 2026-10-01 · T-009: avisos efímeros de 3 s **tanto de éxito como de error** en subidas de imagen (editor y perfil) y en "Guardar este servicio", sin librería de toasts y con un `InlineNotice` por archivo. · El usuario también necesita confirmación de que la acción funcionó; mantener el patrón de avisos ya usado en el editor.
 
 ## 5. Bugs y deuda técnica
 
 - `pnpm lint` en rojo de base: 3 errores `react-hooks/set-state-in-effect` en `components/editable-price.tsx`, `components/editable-quantity.tsx`, `hooks/use-mobile.ts`. Además warnings de `<img>` y variables sin usar. No urgente; no agregar errores nuevos.
-- ~~Server actions solo hacen `throw`, sin manejo de errores en la UI~~ (migración completa en T-008, 2026-10-01: **cero `throw` en server actions**; los 3 `throw` restantes del repo son guards de cliente: `context-provider.tsx`, `sidebar.tsx` y el intencional de `budgets-section.tsx` para dejar el diálogo abierto). El **feedback** de error en la UI queda en T-009.
+- ~~Server actions solo hacen `throw`, sin manejo de errores en la UI~~ (migración completa en T-008, 2026-10-01: **cero `throw` en server actions**; los 3 `throw` restantes del repo son guards de cliente: `context-provider.tsx`, `sidebar.tsx` y el intencional de `budgets-section.tsx` para dejar el diálogo abierto). El **feedback** de error en la UI se resolvió en T-009 (2026-10-01).
 - ~~`uploadPublicImage` (`lib/storage.ts`) hacía `throw`~~ (migrada en T-008 ampliación 2: `UploadImageResult` con `path` + exigir sesión activa).
 - ~~`logIn` devolvía el `AuthError` de Supabase crudo~~ (migrada en T-008 ampliación 2: `LoginResult`; en éxito sigue haciendo `redirect`). `logOut` no se tocó: ignora el error de `signOut` y solo hace `redirect` (sin camino de error).
 - ~~`updateBudget` hacía `throw` con mensaje placeholder y no filtraba por `user_id`~~ (resuelto en T-008: `safeParse`, resultado tipado y `.eq("user_id", user.id)`).
@@ -236,7 +249,7 @@ Formato: fecha · decisión · porqué.
 - **Datos viejos con URL completa**: presupuestos guardados por el flujo anterior se siguen viendo rotos en el editor (el PDF no, usa `resolveImageUrl`). **Sugerencia sin migración:** subir `resolveImageUrl` a `lib/utils.ts` y usarlo en los dos `defaultSrc` de `budget-edit.tsx`.
 - **Storage compartido con `upsert`**: perfil y presupuestos apuntan al mismo archivo (`<user_id>/<nombre-archivo>`, `upsert: true` en `uploadPublicImage`), así que subir un archivo con el mismo nombre desde el perfil o desde otro presupuesto **pisa** el archivo y cambia retroactivamente todas las referencias — el "snapshot" del presupuesto no es un snapshot.
 - **Formatos de imagen incompatibles con el PDF** (deuda, decisión del dueño 2026-09-30: solo anotar): la bucket no valida MIME (`allowed_mime_types` comentado en `config.toml`), `image-upload.tsx` acepta `image/*` y el dropzone del perfil acepta `svg+xml`/`webp`, pero react-pdf sólo renderiza **JPG y PNG** → un logo en SVG/WebP hará fallar la vista previa y la descarga (hoy se muestra "No se pudo generar el archivo." en español).
-- `app/(budget)/loading.tsx` muestra `"loadingg"` (texto placeholder con typo). Quedó fuera de T-011 sin respuesta del dueño; arreglar de una línea cuando se toque.
+- `app/(budget)/loading.tsx` muestra `"loadingg"` (texto placeholder con typo). Quedó fuera de T-011 sin respuesta del dueño; derivado a **T-020** (2026-10-01, junto con los `loading.tsx`/`error.tsx` que el dueño sacó de T-009).
 
 ## 6. Lecciones aprendidas
 
@@ -274,3 +287,4 @@ Una línea por tarea terminada: `YYYY-MM-DD · T-XXX · resultado`.
 - 2026-09-30 · T-003 + T-004 + T-005 · Documento PDF (`budget-pdf.tsx`: 4 toggles, marca de agua "BORRADOR", total ARS desde `total_price_services`, nombre saneado), vista previa por impresión (`preview.txt`) y descarga por icono con tooltip (`pdf-actions.tsx`), cableados en `header-status.tsx`; imports dinámicos de react-pdf. `tsc`, `lint` (línea base) y `build` en verde; probado a mano por el dueño 2026-09-30 (OK).
 - 2026-10-01 · T-008 · Server actions de `budget`, `user`, `saveService` de `services-catalog`, `uploadPublicImage` (`lib/storage.ts`) y `logIn` a resultado tipado; **cero `throw` en server actions**; `updateBudget` sin placeholder y con filtro `user_id`; consumidores adaptados (diálogo de borrado abierto con el error). `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador.
 - 2026-10-01 · — · Fix del doble prefijo de imágenes: `budget-edit.tsx` usa `uploadPublicImage` y guarda path relativo (commit aparte del de T-008); anotadas 3 deudas nuevas (actions huérfanas, datos viejos con URL completa, upsert compartido en storage).
+- 2026-10-01 · T-009 · `ErrorState` con reintento (`router.refresh`) en dashboard, perfil y editor; banner del dashboard con aviso compacto en fallo (opción B); `getById` distingue no-encontrado (`PGRST116`); avisos efímeros de 3 s (éxito y error) en subidas de imagen del editor y del perfil y en "Guardar este servicio". T-008 movida de "Pendientes" a "Hechas" y creada T-020 (loading/error.tsx). `tsc`, `lint` (línea base) y `build` en verde; sin prueba en navegador. Commit `feat(ui)`: incluye además un tweak previo del dueño en `lib/storage.ts` (`error.statusCode` en el `console.error` de la subida); `README.md` y `CLAUDE.md` quedaron fuera por decisión del dueño.

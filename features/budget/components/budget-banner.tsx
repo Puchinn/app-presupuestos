@@ -3,13 +3,17 @@ import { CheckCircle2, FileEdit, Plus, Send } from "lucide-react";
 import { formatARS } from "@/lib/utils";
 import { getUserBudgets } from "../actions";
 import { getUser } from "@/features/user/actions";
+import { ErrorState } from "@/components/ui/error-state";
 
 export async function BudgetBanner() {
   const userResult = await getUser();
   const budgetsResult = await getUserBudgets();
 
-  // En fallo se muestra vacío por ahora; el estado de error queda en T-009.
+  // Sin perfil solo se omite el saludo personalizado (degradación de T-008).
   const user = userResult.ok ? userResult.data : null;
+  // En fallo los KPIs se reemplazan por un aviso con reintento (opción B de
+  // T-009): un cero aquí mentiría sobre la cantidad real de presupuestos.
+  const budgetsError = budgetsResult.ok ? null : budgetsResult.error;
   const budgets = budgetsResult.ok ? budgetsResult.data : [];
 
   const counts = budgets.reduce(
@@ -45,17 +49,19 @@ export async function BudgetBanner() {
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Hola{user ? `, ${user.full_name.trim().split(" ")[0]}` : ""} 👋
           </h1>
-          <p className="text-sm text-slate-600 mt-1">
-            Tenés{" "}
-            <strong className="text-slate-900 font-semibold">
-              {counts.sent} presupuestos
-            </strong>{" "}
-            en negociación y{" "}
-            <strong className="text-slate-900 font-semibold">
-              {counts.draft} en borrador
-            </strong>
-            .
-          </p>
+          {!budgetsError && (
+            <p className="text-sm text-slate-600 mt-1">
+              Tenés{" "}
+              <strong className="text-slate-900 font-semibold">
+                {counts.sent} presupuestos
+              </strong>{" "}
+              en negociación y{" "}
+              <strong className="text-slate-900 font-semibold">
+                {counts.draft} en borrador
+              </strong>
+              .
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -72,46 +78,50 @@ export async function BudgetBanner() {
       </div>
 
       {/* Quick KPI Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
-        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-          <span className="text-xs font-semibold text-slate-500 block">
-            Total Cotizaciones
-          </span>
-          <span className="text-2xl font-black text-slate-900 mt-1 block font-mono">
-            {budgets.length}
-          </span>
-        </div>
+      {budgetsError ? (
+        <ErrorState compact description={budgetsError} className="mt-6" />
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
+          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+            <span className="text-xs font-semibold text-slate-500 block">
+              Total Cotizaciones
+            </span>
+            <span className="text-2xl font-black text-slate-900 mt-1 block font-mono">
+              {budgets.length}
+            </span>
+          </div>
 
-        <div className="bg-emerald-50/60 rounded-xl p-4 border border-emerald-200">
-          <span className="text-xs font-semibold text-emerald-800  flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            Aprobados este mes
-          </span>
-          <span className="text-2xl font-black text-emerald-900 mt-1 block font-mono">
-            {formatARS(counts.approved)}
-          </span>
-        </div>
+          <div className="bg-emerald-50/60 rounded-xl p-4 border border-emerald-200">
+            <span className="text-xs font-semibold text-emerald-800  flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              Aprobados este mes
+            </span>
+            <span className="text-2xl font-black text-emerald-900 mt-1 block font-mono">
+              {formatARS(counts.approved)}
+            </span>
+          </div>
 
-        <div className="bg-sky-50/60 rounded-xl p-4 border border-sky-200">
-          <span className="text-xs font-semibold text-sky-800  flex items-center gap-1.5">
-            <Send className="w-3.5 h-3.5 text-sky-600" />
-            Enviados / En espera
-          </span>
-          <span className="text-2xl font-black text-sky-900 mt-1 block font-mono">
-            {counts.sent}
-          </span>
-        </div>
+          <div className="bg-sky-50/60 rounded-xl p-4 border border-sky-200">
+            <span className="text-xs font-semibold text-sky-800  flex items-center gap-1.5">
+              <Send className="w-3.5 h-3.5 text-sky-600" />
+              Enviados / En espera
+            </span>
+            <span className="text-2xl font-black text-sky-900 mt-1 block font-mono">
+              {counts.sent}
+            </span>
+          </div>
 
-        <div className="bg-slate-100/70 rounded-xl p-4 border border-slate-200">
-          <span className="text-xs font-semibold text-slate-700  flex items-center gap-1.5">
-            <FileEdit className="w-3.5 h-3.5 text-slate-500" />
-            Borradores activos
-          </span>
-          <span className="text-2xl font-black text-slate-900 mt-1 block font-mono">
-            {counts.draft}
-          </span>
+          <div className="bg-slate-100/70 rounded-xl p-4 border border-slate-200">
+            <span className="text-xs font-semibold text-slate-700  flex items-center gap-1.5">
+              <FileEdit className="w-3.5 h-3.5 text-slate-500" />
+              Borradores activos
+            </span>
+            <span className="text-2xl font-black text-slate-900 mt-1 block font-mono">
+              {counts.draft}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

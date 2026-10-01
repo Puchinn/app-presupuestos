@@ -2,8 +2,8 @@
 
 import { ImageUploadDropzone } from "@/components/image-upload-dropzone";
 import type { UserInfo } from "../types";
-import { Globe, ImageIcon, Save, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertCircle, Check, Globe, ImageIcon, Save, User } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { updateUser } from "../actions";
 import { uploadPublicImage } from "@/lib/storage";
 import { getPublicStorageUrl } from "@/lib/utils";
@@ -168,32 +168,55 @@ function IdentitySection({ formData, handleChange }: SectionsProps) {
 }
 
 function ImagesSection({ formData, handleChange }: SectionsProps) {
+  const [notice, setNotice] = useState<{
+    type: "ok" | "error";
+    text: string;
+  } | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    },
+    [],
+  );
+
+  const showNotice = (type: "ok" | "error", text: string) => {
+    setNotice({ type, text });
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), 3000);
+  };
+
   const updateLogo = async (file: File) => {
     const upload = await uploadPublicImage(file);
     if (!upload.ok) {
-      // Sin feedback visual por ahora; queda para T-009.
-      console.error(upload.error);
+      showNotice("error", upload.error);
       return;
     }
     const result = await updateUser({
       logo_url: upload.path,
     });
-    // Sin feedback visual por ahora; queda para T-009.
-    if (!result.ok) console.error(result.error);
+    if (!result.ok) {
+      showNotice("error", result.error);
+      return;
+    }
+    showNotice("ok", "Logo actualizado.");
   };
 
   const updateFooterImage = async (file: File) => {
     const upload = await uploadPublicImage(file);
     if (!upload.ok) {
-      // Sin feedback visual por ahora; queda para T-009.
-      console.error(upload.error);
+      showNotice("error", upload.error);
       return;
     }
     const result = await updateUser({
       footer_image_url: upload.path,
     });
-    // Sin feedback visual por ahora; queda para T-009.
-    if (!result.ok) console.error(result.error);
+    if (!result.ok) {
+      showNotice("error", result.error);
+      return;
+    }
+    showNotice("ok", "Imagen del pie actualizada.");
   };
 
   return (
@@ -253,6 +276,22 @@ function ImagesSection({ formData, handleChange }: SectionsProps) {
           />
         </div>
       </div>
+
+      {notice && (
+        <p
+          role="status"
+          className={`flex items-center gap-1.5 text-xs font-semibold ${
+            notice.type === "error" ? "text-rose-600" : "text-emerald-600"
+          }`}
+        >
+          {notice.type === "error" ? (
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          ) : (
+            <Check className="w-3.5 h-3.5 shrink-0" />
+          )}
+          {notice.text}
+        </p>
+      )}
     </div>
   );
 }

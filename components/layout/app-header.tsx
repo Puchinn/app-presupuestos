@@ -5,7 +5,8 @@ import { getUser, logOut } from "@/features/user/actions";
 
 export const AppHeader = async () => {
   const userResult = await getUser();
-  // Sin sesión o perfil ilegible se omite el saludo; el estado de error queda en T-009.
+  // Sin sesión o perfil ilegible se omite el saludo: es solo decorativo
+  // (degradación aceptada en T-009); el resto del header sigue funcionando.
   const user = userResult.ok ? userResult.data : null;
 
   return (

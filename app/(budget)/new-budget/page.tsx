@@ -6,7 +6,6 @@ export default async function Page() {
   const result = await createNewBudget();
 
   if (!result.ok) {
-    // Estado mínimo para compilar; el diseño de errores queda en T-009.
     return (
       <div className="max-w-md mx-auto mt-16 text-center space-y-4">
         <h1 className="text-xl font-bold text-slate-900">
