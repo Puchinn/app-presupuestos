@@ -4,7 +4,7 @@ import { AlertCircle, Check, Plus, Trash2 } from "lucide-react";
 import { useBudgetContext } from "../../context/context-provider";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DeleteAlertDialog } from "@/components/ui/delete-alert-dialog";
-import { deleteTextItem } from "@/features/text-item/actions";
+import { useBudgetActions } from "@/features/local/local-actions";
 import type { TextItem, TextListResult } from "@/features/text-item/types";
 
 interface TabTextsProps {
@@ -25,6 +25,7 @@ const recortar = (text: string) =>
 
 export function TabTexts({ texts }: TabTextsProps) {
   const { budget, methods, readOnly } = useBudgetContext();
+  const { deleteTextItem } = useBudgetActions();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [destino, setDestino] = useState<Destino>("conditions");

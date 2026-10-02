@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, Loader2 } from "lucide-react";
-import { changeSentStatus } from "../actions";
+import { useBudgetActions } from "@/features/local/local-actions";
 import { SentStatusSchema, type SentStatus } from "../types";
 import { BadgeStatus } from "@/features/budget/components/badge-status";
 import {
@@ -44,6 +44,7 @@ export function ChangeStatusMenu({
   const [value, setValue] = useState<SentStatus>(current);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { changeSentStatus } = useBudgetActions();
 
   const handleSelect = async (next: unknown) => {
     const parsed = SentStatusSchema.safeParse(next);

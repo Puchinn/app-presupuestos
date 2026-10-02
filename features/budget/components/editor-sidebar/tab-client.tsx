@@ -4,7 +4,7 @@ import { AlertCircle, Check, Users, X } from "lucide-react";
 import { useBudgetContext } from "../../context/context-provider";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Client, ClientListResult } from "@/features/clients/types";
-import { createClient } from "@/features/clients/actions";
+import { useBudgetActions } from "@/features/local/local-actions";
 
 interface TabClientProps {
   clients: ClientListResult;
@@ -14,6 +14,7 @@ type Notice = { type: "ok" | "error"; text: string };
 
 export function TabClient({ clients }: TabClientProps) {
   const { methods, budget, readOnly } = useBudgetContext();
+  const { createClient } = useBudgetActions();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);

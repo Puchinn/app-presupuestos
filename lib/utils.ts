@@ -32,5 +32,8 @@ const SUPABASE_STORAGE_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1
 
 export function getPublicStorageUrl(path: string | null) {
   if (!path) return ""; // fallback
+  // Data URLs (versión de prueba T-007) y URLs absolutas se usan tal cual;
+  // solo los paths relativos del bucket se prefijan.
+  if (path.startsWith("data:") || path.startsWith("http")) return path;
   return `${SUPABASE_STORAGE_URL}/public_images/${path}`;
 }

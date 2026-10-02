@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AlertCircle, Loader2, ShieldCheck, X } from "lucide-react";
 import { useBudgetContext } from "../context/context-provider";
-import { emitBudget } from "../actions";
+import { useBudgetActions } from "@/features/local/local-actions";
 
 interface EmitConfirmDialogProps {
   open: boolean;
@@ -24,6 +24,7 @@ export function EmitConfirmDialog({
   onEmitted,
 }: EmitConfirmDialogProps) {
   const { budget, methods } = useBudgetContext();
+  const { emitBudget } = useBudgetActions();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

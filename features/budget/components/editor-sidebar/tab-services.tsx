@@ -7,10 +7,7 @@ import type {
   Service,
   ServiceListResult,
 } from "@/features/services-catalog/types";
-import {
-  deleteService,
-  updateService,
-} from "@/features/services-catalog/actions";
+import { useBudgetActions } from "@/features/local/local-actions";
 import { ServiceCard } from "@/features/services-catalog/components/new-servicecard";
 
 interface TabServicesProps {
@@ -19,6 +16,7 @@ interface TabServicesProps {
 
 export function TabServices({ services }: TabServicesProps) {
   const { methods, readOnly } = useBudgetContext();
+  const { updateService, deleteService } = useBudgetActions();
   const router = useRouter();
   // La lista vive solo en la prop del servidor: así "Guardar este servicio"
   // del documento (que agrega al catálogo con el sidebar abierto) la mantiene

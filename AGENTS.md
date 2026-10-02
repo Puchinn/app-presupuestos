@@ -86,6 +86,7 @@ Si no puedes verificar algo (por ejemplo, no puedes correr la app), dilo explíc
 - `/profile`: edición de datos del usuario.
 - `/new-budget`: crear presupuesto.
 - `/edit/[id]`: editar presupuesto (incluye sidebar).
+- `/demo` y `/demo/edit/[id]`: versión de prueba sin login con datos en `localStorage` (T-007).
 
 Las rutas nuevas planificadas están en `MEMORY.md`. No las crees sin plan aprobado.
 

@@ -12,8 +12,20 @@ type BudgetInfo = Omit<Budget, "services" | "participants" | "dates">;
 type Service = Budget["services"][number];
 type Participant = Budget["participants"][number];
 type Dates = Budget["dates"];
-type AutoSavePayload = Omit<Budget, "sent_status">;
+export type AutoSavePayload = Omit<Budget, "sent_status">;
 export type SaveStatus = "saved" | "saving" | "unsaved" | "error";
+
+// Estrategia de autoguardado: por defecto escribe en el servidor con
+// updateBudget; la versión de prueba (T-007) inyecta la suya de
+// localStorage. El contrato es solo { ok }, igual que el resultado tipado.
+export type PersistFn = (
+  payload: AutoSavePayload,
+) => Promise<{ ok: boolean }>;
+
+async function persistToServer(payload: AutoSavePayload) {
+  const result = await updateBudget(payload);
+  return { ok: result.ok };
+}
 
 // sent_status se cambia únicamente con la action changeSentStatus: el autoguardado
 // nunca lo escribe, así un guardado pendiente no puede pisar el estado recién cambiado.
@@ -37,7 +49,10 @@ function toAutoSavePayload(
   return payload;
 }
 
-export function useBudget(initialBudget?: Budget) {
+export function useBudget(
+  initialBudget?: Budget,
+  persist: PersistFn = persistToServer,
+) {
   const budgetData = initialBudget || DEFAULT_BUDGET;
   const firstRender = useRef(true);
 
@@ -62,7 +77,7 @@ export function useBudget(initialBudget?: Budget) {
   const saveChanges = async (dataToSave: AutoSavePayload) => {
     setSaveStatus("saving");
     try {
-      const result = await updateBudget(dataToSave);
+      const result = await persist(dataToSave);
       setSaveStatus(result.ok ? "saved" : "error");
     } catch (error) {
       // Fallo de red: la action devuelve resultado tipado, esto cubre lo inesperado.

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   FileText,
   Loader2,
@@ -231,6 +232,15 @@ export default function Page() {
             )}
           </button>
         </form>
+
+        <p className="text-center text-xs text-slate-500 pt-1">
+          <Link
+            href="/demo"
+            className="font-semibold text-slate-600 hover:text-slate-900 underline focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none rounded"
+          >
+            Probar la app sin cuenta
+          </Link>
+        </p>
       </div>
 
       {/* Forgot Password Modal (Fully functional, not decorative) */}

@@ -12,10 +12,8 @@ import { EditablePrice } from "@/components/editable-price";
 import { EditableBulletList } from "@/components/editable-bullet-list";
 import { HookReturn } from "../hooks/use-budget";
 import type { Budget } from "../types";
-import { saveService } from "@/features/services-catalog/actions";
+import { useBudgetActions } from "@/features/local/local-actions";
 import { getFileSizeInMB, getPublicStorageUrl } from "@/lib/utils";
-import { createTextItem } from "@/features/text-item/actions";
-import { uploadPublicImage } from "@/lib/storage";
 
 type NoticeData = {
   /** Clave del destino: "conditions", "budget_details", "logo", "footer" o el id del servicio. */
@@ -50,6 +48,7 @@ function InlineNotice({
 
 export function BudgetEdit({ budget, methods, readOnly }: HookReturn) {
   const router = useRouter();
+  const { saveService, createTextItem, uploadImage } = useBudgetActions();
   const [isPending, startTransition] = useTransition();
   const [notice, setNotice] = useState<NoticeData | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -90,7 +89,7 @@ export function BudgetEdit({ budget, methods, readOnly }: HookReturn) {
       return;
     }
 
-    const upload = await uploadPublicImage(file);
+    const upload = await uploadImage(file);
 
     if (!upload.ok) {
       showNotice(field, "error", upload.error);
