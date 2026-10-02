@@ -3,7 +3,13 @@
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { LoginResult, UserInfo, UserInfoSchema, UserResult } from "./types";
+import {
+  LoginResult,
+  UpdateProfileSchema,
+  UserInfo,
+  UserInfoSchema,
+  UserResult,
+} from "./types";
 
 interface Props {
   email: string;
@@ -69,7 +75,7 @@ export async function getUser(): Promise<UserResult> {
     return { ok: false, error: "Tu perfil tiene datos inválidos." };
   }
 
-  return { ok: true, data: parsed.data };
+  return { ok: true, data: { ...parsed.data, email: user?.email ?? "" } };
 }
 
 export async function updateUser(
@@ -87,9 +93,17 @@ export async function updateUser(
     };
   }
 
+  // Descarta claves fuera del formulario (id, counters, email): escribir
+  // counters acá pisaría el folio que emitBudget acaba de asignar.
+  const parsedInput = UpdateProfileSchema.safeParse(user_data);
+  if (!parsedInput.success) {
+    console.error("Perfil inválido al guardar:", parsedInput.error.issues);
+    return { ok: false, error: "Los datos del perfil no son válidos." };
+  }
+
   const { data, error } = await supabase
     .from("profiles")
-    .update(user_data)
+    .update(parsedInput.data)
     .eq("id", user.id)
     .select("*")
     .single();
@@ -107,5 +121,5 @@ export async function updateUser(
 
   revalidatePath("/");
 
-  return { ok: true, data: parsed.data };
+  return { ok: true, data: { ...parsed.data, email: user.email ?? "" } };
 }

@@ -40,9 +40,8 @@ export function UserInformation({ user }: { user: UserInfo }) {
       <div className="gap-8 items-start">
         <form className="space-y-8" onSubmit={handleSaveChanges}>
           <IdentitySection formData={formData} handleChange={handleChange} />
-          <ImagesSection formData={formData} handleChange={handleChange} />
           <ContactSection formData={formData} handleChange={handleChange} />
-          <BankSection />
+          <ImagesSection formData={formData} handleChange={handleChange} />
         </form>
       </div>
     </div>
@@ -70,8 +69,8 @@ function ProfileHeader({ saveStatus, handleSubmit }: ProfileHeaderProps) {
           Tu Información & Datos de Emisión
         </h1>
         <p className="text-sm text-slate-600 mt-1">
-          Estos datos fiscales, de contacto y bancarios se integran
-          automáticamente en el encabezado y pie de tus cotizaciones.
+          Tus datos de identidad y contacto se integran automáticamente en el
+          encabezado y el pie de tus cotizaciones.
         </p>
       </div>
 
@@ -101,22 +100,10 @@ function IdentitySection({ formData, handleChange }: SectionsProps) {
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
       <h2 className="text-base font-bold text-slate-900 pb-2 border-b border-slate-100 flex items-center gap-2">
         <User className="w-4 h-4 text-blue-600" />
-        <span>Identidad Profesional & Razón Social</span>
+        <span>Identidad Profesional</span>
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="sm:col-span-2">
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-            Nombre del Estudio / Fantasía (Mock)
-          </label>
-          <input
-            type="text"
-            // value={formData.studioName}
-            // onChange={(e) => handleChange("studioName", e.target.value)}
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 outline-none transition-colors"
-          />
-        </div>
-
         <div>
           <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
             Nombre del Titular *
@@ -135,19 +122,6 @@ function IdentitySection({ formData, handleChange }: SectionsProps) {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-            CUIT / CUIL (Mock)
-          </label>
-          <input
-            type="text"
-            // value={formData.cuit}
-            // onChange={(e) => handleChange("cuit", e.target.value)}
-            placeholder="20-XXXXXXXX-X"
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-mono focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 outline-none transition-colors"
-          />
-        </div>
-
-        <div className="sm:col-span-2">
           <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
             Rol / Especialidad Profesional
           </label>
@@ -259,7 +233,7 @@ function ImagesSection({ formData, handleChange }: SectionsProps) {
             id="upload-payment-qr"
             label="Código QR para Cobros"
             badgeText="Footer PDF"
-            description="Se ubicará en el pie de página junto a los datos bancarios para pago directo."
+            description="Se ubicará en el pie de página para agilizar los cobros."
             value={getPublicStorageUrl(formData.footer_image_url)}
             onChange={(file) => updateImageField(file, "footer_image_url")}
             onClear={() =>
@@ -297,20 +271,24 @@ function ContactSection({ formData, handleChange }: SectionsProps) {
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
       <h2 className="text-base font-bold text-slate-900 pb-2 border-b border-slate-100 flex items-center gap-2">
         <Globe className="w-4 h-4 text-blue-600" />
-        <span>Canales de Contacto & Domicilio</span>
+        <span>Canales de Contacto</span>
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
+        <div className="sm:col-span-2">
           <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-            Email de Contacto (Mock)
+            Correo de acceso
           </label>
           <input
             type="email"
-            //   value={formData.email}
-            //   onChange={(e) => handleChange("email", e.target.value)}
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 outline-none transition-colors"
+            readOnly
+            value={formData.email}
+            className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500 cursor-not-allowed"
           />
+          <p className="text-[11px] text-slate-400 mt-1">
+            Es el correo con el que iniciás sesión; se cambia desde tu cuenta de
+            acceso.
+          </p>
         </div>
 
         <div>
@@ -340,23 +318,7 @@ function ContactSection({ formData, handleChange }: SectionsProps) {
             className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 outline-none transition-colors"
           />
         </div>
-
-        <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-            Ciudad / Jurisdicción (Mock)
-          </label>
-          <input
-            type="text"
-            // value={formData.city}
-            // onChange={(e) => handleChange("city", e.target.value)}
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 outline-none transition-colors"
-          />
-        </div>
       </div>
     </div>
   );
-}
-
-function BankSection() {
-  return "";
 }

@@ -47,9 +47,6 @@ export const AppHeader = async () => {
                   {user.full_name}
                 </strong>
               </span>
-              <span className="text-[11px] text-slate-400 block font-mono">
-                CUIT: {}
-              </span>
             </div>
           )}
 
