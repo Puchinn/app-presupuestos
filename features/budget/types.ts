@@ -172,9 +172,6 @@ export type BudgetListResult =
 export type BudgetIdResult =
   | { ok: true; id: string }
   | { ok: false; error: string };
-export type BudgetUrlResult =
-  | { ok: true; url: string }
-  | { ok: false; error: string };
 export type ChangeSentStatusResult =
   | { ok: true; sent_status: SentStatus }
   | { ok: false; error: string };

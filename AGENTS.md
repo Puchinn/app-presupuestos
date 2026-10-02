@@ -100,11 +100,11 @@ Las rutas nuevas planificadas están en `MEMORY.md`. No las crees sin plan aprob
   - `sent_status` (`draft | pending | sent | approved | rejected`): estado **comercial/de negociación**. Es el que muestran `BadgeStatus`, los filtros del dashboard y `budget-banner`.
     Los valores se definen en los schemas zod (`SentStatusSchema`, etc.); no los dupliques como strings sueltos, deriva los tipos del schema. Ante la duda sobre el nombre o valores de una columna, el código y `supabase/migrations/` mandan sobre este texto.
 
-## Manejo de errores (convención objetivo)
+## Manejo de errores (convención)
 
-Hoy las server actions solo hacen `throw`. Para código **nuevo** (y al tocar código existente, si el plan lo incluye):
+Las server actions **ya no hacen `throw`** (migración completa en T-008, 2026-10-01): devuelven un resultado tipado, por ejemplo `{ ok: true, data } | { ok: false, error: string }`, con el mensaje de error en español. Para código nuevo (y al tocar código existente, si el plan lo incluye):
 
-- Las server actions devuelven un resultado tipado en vez de lanzar, por ejemplo `{ ok: true, data } | { ok: false, error: string }`, con el mensaje de error en español.
+- Mantené ese resultado tipado; **no reintroduzcas `throw`** en server actions.
 - La UI siempre contempla: cargando, error (con opción de reintentar cuando aplique) y vacío.
 - No cambies el contrato de acciones existentes sin que el plan lo diga, porque otros componentes dependen de ellas.
 

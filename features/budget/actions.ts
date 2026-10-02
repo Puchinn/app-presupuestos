@@ -7,7 +7,6 @@ import type {
   BudgetIdResult,
   BudgetListResult,
   BudgetResult,
-  BudgetUrlResult,
   ChangeSentStatusResult,
   EmitBudgetResult,
   SentStatus,
@@ -168,9 +167,10 @@ export async function updateBudget(
   // el WHERE .eq("status", "draft") de abajo rechaza los presupuestos
   // emitidos. Usamos omit (y no .partial()): en Zod 4 el .default() se aplica
   // igual dentro de .optional() y rellenaría lo que quisiéramos dejar intacto.
-  const parsed = BudgetSchema.omit({ sent_status: true, status: true }).safeParse(
-    budget,
-  );
+  const parsed = BudgetSchema.omit({
+    sent_status: true,
+    status: true,
+  }).safeParse(budget);
   if (!parsed.success) {
     console.error("Presupuesto inválido al guardar:", parsed.error.issues);
     return { ok: false, error: "Los datos del presupuesto no son válidos." };
@@ -222,7 +222,8 @@ export async function updateBudget(
     }
     return {
       ok: false,
-      error: "No se encontró el presupuesto o no tienes permiso para modificarlo.",
+      error:
+        "No se encontró el presupuesto o no tienes permiso para modificarlo.",
     };
   }
 
@@ -530,118 +531,12 @@ export async function emitBudget(budget: Budget): Promise<EmitBudgetResult> {
     // Otro proceso lo emitió entre la lectura y el update.
     return {
       ok: false,
-      error: "Este presupuesto ya fue emitido o no tienes permiso para modificarlo.",
+      error:
+        "Este presupuesto ya fue emitido o no tienes permiso para modificarlo.",
     };
   }
 
   revalidatePath(`/edit/${budget.id}`);
   revalidatePath("/");
   return { ok: true, public_code, sent_status: "pending" };
-}
-
-export async function changeLogoUrl(
-  file: File,
-  budget_id: string,
-): Promise<BudgetUrlResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return {
-      ok: false,
-      error:
-        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
-    };
-  }
-
-  const { data, error } = await supabase.storage
-    .from("public_images")
-    .upload(`/${user.id}/${Date.now()}-${file.name}`, file, {
-      upsert: true,
-    });
-
-  if (error) {
-    console.error("Error al subir el logo:", error.message);
-    return { ok: false, error: "No se pudo subir el logo. Intenta de nuevo." };
-  }
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("public_images").getPublicUrl(data.path);
-
-  const { error: updateError } = await supabase
-    .from("budgets")
-    .update({
-      logo_url: publicUrl,
-    })
-    .eq("id", budget_id)
-    .eq("user_id", user.id);
-
-  if (updateError) {
-    console.error("Error al guardar el logo:", updateError.message);
-    return {
-      ok: false,
-      error: "No se pudo guardar el logo. Intenta de nuevo.",
-    };
-  }
-
-  revalidatePath(`/edit`);
-  return { ok: true, url: publicUrl };
-}
-
-export async function changeFooterUrl(
-  file: File,
-  budget_id: string,
-): Promise<BudgetUrlResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return {
-      ok: false,
-      error:
-        "No hay una sesión activa. Vuelve a iniciar sesión e inténtalo de nuevo.",
-    };
-  }
-
-  const { data, error } = await supabase.storage
-    .from("public_images")
-    .upload(`/${user.id}/${Date.now()}-${file.name}`, file, {
-      upsert: true,
-    });
-
-  if (error) {
-    console.error("Error al subir la imagen del pie:", error.message);
-    return {
-      ok: false,
-      error: "No se pudo subir la imagen del pie. Intenta de nuevo.",
-    };
-  }
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("public_images").getPublicUrl(data.path);
-
-  const { error: updateError } = await supabase
-    .from("budgets")
-    .update({
-      footer_img_url: publicUrl,
-    })
-    .eq("id", budget_id)
-    .eq("user_id", user.id);
-
-  if (updateError) {
-    console.error("Error al guardar la imagen del pie:", updateError.message);
-    return {
-      ok: false,
-      error: "No se pudo guardar la imagen del pie. Intenta de nuevo.",
-    };
-  }
-
-  revalidatePath(`/edit`);
-  return { ok: true, url: publicUrl };
 }

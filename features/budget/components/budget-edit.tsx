@@ -13,7 +13,7 @@ import { EditableBulletList } from "@/components/editable-bullet-list";
 import { HookReturn } from "../hooks/use-budget";
 import type { Budget } from "../types";
 import { saveService } from "@/features/services-catalog/actions";
-import { getPublicStorageUrl } from "@/lib/utils";
+import { getFileSizeInMB, getPublicStorageUrl } from "@/lib/utils";
 import { createTextItem } from "@/features/text-item/actions";
 import { uploadPublicImage } from "@/lib/storage";
 
@@ -81,27 +81,27 @@ export function BudgetEdit({ budget, methods, readOnly }: HookReturn) {
     );
   };
 
-  const changeLogo = async (file: File) => {
-    const upload = await uploadPublicImage(file);
-    if (!upload.ok) {
-      showNotice("logo", "error", upload.error);
+  const changeImage = async (
+    file: File,
+    field: keyof Pick<Budget, "logo_url" | "footer_img_url">,
+  ) => {
+    if (getFileSizeInMB(file) > 1) {
+      showNotice(field, "error", "El archivo no puede pesar mas de 1mb");
       return;
     }
-    methods.editBudgetInfo({
-      logo_url: upload.path,
-    });
-    showNotice("logo", "ok", "Logo actualizado.");
-  };
-  const changeFooterImage = async (file: File) => {
+
     const upload = await uploadPublicImage(file);
+
     if (!upload.ok) {
-      showNotice("footer", "error", upload.error);
+      showNotice(field, "error", upload.error);
       return;
     }
+
     methods.editBudgetInfo({
-      footer_img_url: upload.path,
+      [field]: upload.path,
     });
-    showNotice("footer", "ok", "Imagen del pie actualizada.");
+
+    showNotice(field, "ok", "Actualizado correctamente");
   };
 
   const clearImage = (prop: keyof Budget) => {
@@ -137,7 +137,7 @@ export function BudgetEdit({ budget, methods, readOnly }: HookReturn) {
               {settings.show_logo_url && (
                 <ImageUpload
                   defaultSrc={getPublicStorageUrl(budget.logo_url)}
-                  onUpload={changeLogo}
+                  onUpload={(file) => changeImage(file, "logo_url")}
                   size={140}
                   onDeleteImage={() => clearImage("logo_url")}
                   disabled={readOnly}
@@ -210,7 +210,7 @@ export function BudgetEdit({ budget, methods, readOnly }: HookReturn) {
         </header>
         {/* FIN HEADER */}
 
-        {notice?.id === "logo" && (
+        {notice?.id === "logo_url" && (
           <div className="px-12 pt-4">
             <InlineNotice notice={notice} />
           </div>
@@ -440,13 +440,15 @@ export function BudgetEdit({ budget, methods, readOnly }: HookReturn) {
               {settings.show_footer_url && (
                 <div className="space-y-2">
                   <ImageUpload
-                    onUpload={changeFooterImage}
+                    onUpload={(file) => changeImage(file, "footer_img_url")}
                     size={80}
                     defaultSrc={getPublicStorageUrl(budget.footer_img_url)}
                     onDeleteImage={() => clearImage("footer_img_url")}
                     disabled={readOnly}
                   />
-                  {notice?.id === "footer" && <InlineNotice notice={notice} />}
+                  {notice?.id === "footer_img_url" && (
+                    <InlineNotice className="absolute" notice={notice} />
+                  )}
                 </div>
               )}
               <div>

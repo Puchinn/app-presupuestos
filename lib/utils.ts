@@ -24,6 +24,10 @@ export function formatDate(date: string | null) {
   return date ? format(date, "PP") : "Sin Fecha";
 }
 
+export function getFileSizeInMB(file: File): number {
+  return file.size / (1024 * 1024);
+}
+
 const SUPABASE_STORAGE_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public`;
 
 export function getPublicStorageUrl(path: string | null) {

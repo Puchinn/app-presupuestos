@@ -25,13 +25,6 @@ function formatDate(value: string | undefined) {
   return format(parsed, "PP", { locale: es });
 }
 
-// changeLogoUrl/changeFooterUrl guardan la URL pública completa, pero el perfil
-// guarda solo el path: se resuelven los dos casos a la URL final.
-function resolveImageUrl(value: string) {
-  if (!value) return "";
-  return /^https?:\/\//i.test(value) ? value : getPublicStorageUrl(value);
-}
-
 // Sin acentos ni caracteres fuera de A-Z/0-9: "Presupuesto-<código>-<cliente>.pdf"
 function slug(value: string) {
   return value
@@ -399,7 +392,10 @@ export function BudgetPdf({ budget }: BudgetPdfProps) {
             <View style={styles.headerCol}>
               {showLogo ? (
                 // eslint-disable-next-line jsx-a11y/alt-text -- <Image> de react-pdf, no un <img> de HTML
-                <Image src={resolveImageUrl(budget.logo_url)} style={styles.logo} />
+                <Image
+                  src={getPublicStorageUrl(budget.logo_url)}
+                  style={styles.logo}
+                />
               ) : (
                 <View style={styles.logoPlaceholder} />
               )}
@@ -555,7 +551,7 @@ export function BudgetPdf({ budget }: BudgetPdfProps) {
                 <View style={styles.footerImageBox}>
                   {/* eslint-disable-next-line jsx-a11y/alt-text -- <Image> de react-pdf, no un <img> de HTML */}
                   <Image
-                    src={resolveImageUrl(budget.footer_img_url)}
+                    src={getPublicStorageUrl(budget.footer_img_url)}
                     style={styles.footerImage}
                   />
                 </View>
@@ -564,9 +560,7 @@ export function BudgetPdf({ budget }: BudgetPdfProps) {
                 <Text style={styles.footerWebsiteLabel}>
                   Conoce mis trabajos
                 </Text>
-                <Text style={styles.footerWebsiteValue}>
-                  {budget.website}
-                </Text>
+                <Text style={styles.footerWebsiteValue}>{budget.website}</Text>
               </View>
             </View>
 

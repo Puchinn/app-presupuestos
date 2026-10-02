@@ -6,7 +6,7 @@ import { AlertCircle, Check, Globe, ImageIcon, Save, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { updateUser } from "../actions";
 import { uploadPublicImage } from "@/lib/storage";
-import { getPublicStorageUrl } from "@/lib/utils";
+import { getPublicStorageUrl, getFileSizeInMB } from "@/lib/utils";
 
 type Status = "saved" | "saving" | "unsaved" | "error";
 
@@ -187,36 +187,32 @@ function ImagesSection({ formData, handleChange }: SectionsProps) {
     noticeTimer.current = setTimeout(() => setNotice(null), 3000);
   };
 
-  const updateLogo = async (file: File) => {
-    const upload = await uploadPublicImage(file);
-    if (!upload.ok) {
-      showNotice("error", upload.error);
+  const updateImageField = async (
+    file: File,
+    field: "logo_url" | "footer_image_url",
+  ) => {
+    if (getFileSizeInMB(file) > 1) {
+      showNotice("error", "El archivo no puede superar los 1MB");
       return;
     }
-    const result = await updateUser({
-      logo_url: upload.path,
-    });
-    if (!result.ok) {
-      showNotice("error", result.error);
-      return;
-    }
-    showNotice("ok", "Logo actualizado.");
-  };
 
-  const updateFooterImage = async (file: File) => {
     const upload = await uploadPublicImage(file);
+
     if (!upload.ok) {
       showNotice("error", upload.error);
       return;
     }
-    const result = await updateUser({
-      footer_image_url: upload.path,
+
+    const update = await updateUser({
+      [field]: upload.path,
     });
-    if (!result.ok) {
-      showNotice("error", result.error);
+
+    if (!update.ok) {
+      showNotice("error", update.error);
       return;
     }
-    showNotice("ok", "Imagen del pie actualizada.");
+
+    showNotice("ok", "Imagen Actualizada");
   };
 
   return (
@@ -246,14 +242,14 @@ function ImagesSection({ formData, handleChange }: SectionsProps) {
             badgeText="Encabezado PDF"
             description="Aparecerá en el extremo superior de cada presupuesto generado."
             value={getPublicStorageUrl(formData.logo_url)}
-            onChange={updateLogo}
+            onChange={(file) => updateImageField(file, "logo_url")}
             onClear={() =>
               handleChange({
                 logo_url: "",
               })
             }
             previewHeight="h-14"
-            aspectHint="PNG transparente o SVG (Horizontal o cuadrado, máx 4MB)."
+            aspectHint="PNG transparente o SVG (Horizontal o cuadrado, máx 1 MB)."
           />
         </div>
 
@@ -265,7 +261,7 @@ function ImagesSection({ formData, handleChange }: SectionsProps) {
             badgeText="Footer PDF"
             description="Se ubicará en el pie de página junto a los datos bancarios para pago directo."
             value={getPublicStorageUrl(formData.footer_image_url)}
-            onChange={updateFooterImage}
+            onChange={(file) => updateImageField(file, "footer_image_url")}
             onClear={() =>
               handleChange({
                 footer_image_url: "",

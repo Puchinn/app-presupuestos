@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { UploadCloud, Trash2, RefreshCw, Check } from "lucide-react";
+import { getFileSizeInMB } from "@/lib/utils";
 
 interface ImageUploadDropzoneProps {
   id: string;
@@ -21,7 +22,7 @@ export const ImageUploadDropzone: React.FC<ImageUploadDropzoneProps> = ({
   description,
   value,
   onChange,
-  aspectHint = "Recomendado: PNG, JPG o SVG. Máx 3 MB.",
+  aspectHint = "Recomendado: PNG, JPG o SVG. Máx 1 MB.",
   previewHeight = "h-24",
   badgeText,
   onClear,
@@ -39,9 +40,9 @@ export const ImageUploadDropzone: React.FC<ImageUploadDropzoneProps> = ({
       return;
     }
 
-    // Limit to 4MB for safety
-    if (file.size > 4 * 1024 * 1024) {
-      setErrorMsg("La imagen supera el límite recomendado de 4 MB.");
+    // Límite de 1 MB (igual que en los handlers de subida)
+    if (getFileSizeInMB(file) > 1) {
+      setErrorMsg("La imagen supera el límite recomendado de 1 MB.");
       return;
     }
   };
