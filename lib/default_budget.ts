@@ -14,9 +14,15 @@ export const DEFAULT_BUDGET: Budget = {
   services: [],
   conditions: "",
   budget_details: "",
-  participants: [],
-  website: "",
-  contact_number: "",
+  participants: [
+    {
+      id: "",
+      name: "Tu Nombre",
+      role: "Rol desempeñado",
+    },
+  ],
+  website: "misitioweb.com",
+  contact_number: "+11 11 111111",
   footer_img_url: "",
   status: "draft",
   settings: {
