@@ -1,234 +1,180 @@
-# Guía de Diseño: Identificadores y Nomenclatura para Presupuestos
+# app-presupuestos
 
-Al diseñar una aplicación de presupuestos o facturación, es fundamental separar la **identificación técnica interna** de la **identificación comercial/visible**. A continuación se detallan los formatos recomendados para IDs del sistema, códigos comerciales y archivos exportados.
+Aplicación web para crear, editar y emitir presupuestos profesionales, pensada para independientes y estudios en Argentina. Los presupuestos se arman en un editor con autoguardado, se exportan a PDF y se emiten con un folio formal.
 
----
+**Demo en vivo:** https://app-presupuestos-rho.vercel.app
+(podés entrar con "Probar la app sin cuenta" desde `/login`; los datos de la demo quedan solo en tu navegador).
 
-## 1. ID Interno de Base de Datos (Sistema)
+![Editor de presupuestos](docs/screenshots/editor.webp)
 
-El ID interno se utiliza para relaciones de base de datos, API endpoints y control de estado en la aplicación.
+## Funcionalidades
 
-### Buenas Prácticas
+- **Autenticación** con Supabase (email y contraseña).
+- **Dashboard** con listado de presupuestos, filtros por estado comercial y menú de acciones en cada tarjeta.
+- **Editor de presupuestos** con autoguardado (debounce de 800 ms) y un sidebar de cinco pestañas:
+  - **Servicios**: catálogo reutilizable de servicios y precios.
+  - **Textos**: textos frecuentes y cláusulas.
+  - **Configuración**: qué secciones se muestran en el documento (logo, pie, detalles, condiciones).
+  - **Cliente**: datos del cliente.
+  - **Info**: información general del presupuesto.
+- **Exportación a PDF** (vista previa y descarga) con `@react-pdf/renderer`, generado 100% en el navegador.
+- **Emisión formal**: confirmación, validación en el servidor y folio automático `PRE-YYYY-NNN`. Un presupuesto emitido pasa a **solo lectura** y no se puede revertir.
+- **Perfil de usuario**: nombre, rol, contacto, web, logo e imagen de pie, que se reutilizan en los documentos.
+- **Modo demo sin login** (`/demo`): la app completa persistiendo en `localStorage`, sin tocar Supabase.
 
-- **Nunca exponer IDs secuenciales simples (`1`, `2`, `3`)**: Revelan el volumen de ventas y permiten inferir datos de competencia.
-- **Soporte Offline/Cliente**: Utilizar identificadores que se puedan generar en el frontend sin colisiones antes de sincronizar con el backend.
+### Estados de un presupuesto
 
-### Formatos Recomendados
+Cada presupuesto tiene dos estados independientes:
 
-- **UUID v4**: Estándar para identificadores unívocos globales (`e7b8a109-9f12-4f3b-8321-823901bc93f2`).
-- **NanoID / CUID**: Alternativas más compactas y optimizadas para ordenamiento temporal.
+| Campo                     | Valores                                            | Para qué sirve                                                                              |
+| ------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `status` (fiscal)         | `draft`, `issued`                                  | Si el documento ya fue emitido y quedó bloqueado.                                           |
+| `sent_status` (comercial) | `draft`, `pending`, `sent`, `approved`, `rejected` | Seguimiento del presupuesto con el cliente. Se cambia desde el dashboard y desde el editor. |
 
----
+Al emitir, `status` pasa a `issued` y `sent_status` a `pending`.
 
-## 2. Código Comercial / Número de Documento (Visible)
+## Stack
 
-Es el código que leen el usuario y su cliente final en el documento, emails o impresiones.
+| Capa               | Tecnología                                             |
+| ------------------ | ------------------------------------------------------ |
+| Framework          | Next.js 16 (App Router) + React 19                     |
+| Lenguaje           | TypeScript                                             |
+| Estilos / UI       | Tailwind CSS 4, shadcn/ui, Base UI, lucide-react       |
+| Backend            | Supabase (Postgres, Auth, Storage) vía `@supabase/ssr` |
+| PDF                | `@react-pdf/renderer`                                  |
+| Validación         | Zod                                                    |
+| Utilidades         | date-fns, react-day-picker, use-debounce, uuid         |
+| Gestor de paquetes | pnpm                                                   |
+| Deploy             | Vercel                                                 |
 
-### Formato Recomendado
+## Puesta en marcha
 
-```
-PRES-[AÑO][MES]-[SECUENCIAL]
-```
+### Requisitos
 
-### Ejemplos
+- Node.js 20.9 o superior (requisito de Next.js 16)
+- pnpm (el repo fija la versión en `packageManager`; con Corepack: `corepack enable`)
+- Un proyecto de [Supabase](https://supabase.com) (o Docker, si querés correrlo en local)
 
-- `PRES-202609-001`
-- `PR-2026-0042`
+### 1. Clonar e instalar
 
-### Ventajas de este Formato
-
-- **Orden Cronológico Natural**: Al ordenar alfabéticamente por código, los documentos se organizan por fecha de forma automática (`YYYYMM`).
-- **Claridad Operativa**: Permite identificar de un vistazo en qué periodo se emitió la cotización.
-- **Control de Secuencia**: El contador (`001`, `002`) se puede reiniciar mensualmente o anualmente según la configuración de la app.
-
----
-
-## 3. Estructura para URLs (Ruteo Web)
-
-Para el acceso web o enlaces compartibles del presupuesto, se recomienda combinar el código comercial con un hash de seguridad corto.
-
-```
-/presupuestos/PRES-202609-001-a8f9d
-```
-
-- **Seguridad**: Evita que un cliente altere el ID en la URL para ver presupuestos de otros clientes.
-- **Legibilidad**: Permite al usuario identificar el recurso navegando el historial.
-
----
-
-## 4. Nomenclatura de Archivos Exportados (PDF)
-
-El nombre del archivo exportado debe aportar contexto tanto a la persona que emite el presupuesto como al cliente que lo recibe.
-
-### Formato Ideal
-
-```
-[TuEmpresa] - Presupuesto [CodigoComercial] - [NombreCliente].pdf
+```bash
+git clone https://github.com/Puchinn/app-presupuestos.git
+cd app-presupuestos
+pnpm install
 ```
 
-### Ejemplos
+### 2. Variables de entorno
 
-- `EstudioDesign - Presupuesto PRES-202609-001 - Juan Perez.pdf`
-- `AcroServicios - Presupuesto PR-2026-0042 - Constructora S.A..pdf`
+Creá un archivo `.env.local` en la raíz:
 
-### Malas Prácticas a Evitar
-
-- `presupuesto_1.pdf` (Genera confusión y pérdida del archivo en carpetas de descargas).
-- `documento_descarga_final_v2.pdf` (Falta de profesionalismo).
-
----
-
-## Resumen de Arquitectura
-
-| Nivel              | Formato / Patrón                      | Propósito                                                    |
-| :----------------- | :------------------------------------ | :----------------------------------------------------------- |
-| **Base de Datos**  | `UUID v4` / `NanoID`                  | Unicidad técnica, integridad referencial y soporte offline.  |
-| **Interfaz / UI**  | `PRES-YYYYMM-001`                     | Identificación clara, ordenable e inmutable para el cliente. |
-| **URL Publica**    | `/presupuestos/[Código]-[Hash]`       | Seguridad por oscuridad + legibilidad.                       |
-| **PDF / Descarga** | `Empresa - PRES-Código - Cliente.pdf` | Organización clara en el sistema de archivos del usuario.    |
-
-# Arquitectura Multi-Tenant en Supabase / PostgreSQL
-
-Este documento resume las decisiones de diseño y arquitectura para estructurar la base de datos y los tipos de datos en la aplicación, garantizando el aislamiento de información entre usuarios mediante **Multi-Tenant con `user_id`** y **Row Level Security (RLS)**.
-
----
-
-## 1. Concepto Fundamental: Multi-Tenant con `user_id`
-
-En lugar de crear esquemas o tablas separadas por cada usuario (ej. `clientes_usuario_1`), todos los datos de todos los usuarios residen en las mismas tablas principales (`clients`, `documents`, `services`, `quotations`).
-
-Cada registro se asocia directamente a su propietario mediante una columna de clave foránea `user_id` que apunta a `auth.users(id)`.
-
-```
-                    [ auth.users ]  (Nativo de Supabase)
-                          |
-            +-------------+-------------+
-            | 1:1                       | 1:N
-            v                           v
-      [ profiles ]               [ clients ]
-            |                           |
-            +------------+--------------+
-                         |
-                         v 1:N
-                   [ quotations ]
-                         |
-                         v 1:N
-                 [ quotation_items ]
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=https://<tu-proyecto>.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<tu-publishable-key>
 ```
 
----
+Los dos valores están en tu proyecto de Supabase, en **Project Settings → API**. Son las únicas variables necesarias.
 
-## 2. Seguridad a Nivel de Fila (Row Level Security - RLS)
+### 3. Conectar un proyecto de Supabase
 
-PostgreSQL y Supabase se encargan de aislar la información de manera transparente. Mediante RLS, las consultas ejecutadas desde el cliente filtran automáticamente los datos sin depender exclusivamente de un `WHERE user_id = ...` en la aplicación.
+Las migraciones están en `supabase/migrations/` y crean las tablas, las políticas RLS, el trigger de perfiles y las políticas de Storage.
 
-### Ejemplo de Configuración SQL:
+**Opción A: proyecto en la nube**
 
-```sql
--- 1. Habilitar RLS en la tabla
-ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
-
--- 2. Política para SELECT, INSERT, UPDATE, DELETE
-CREATE POLICY "Los usuarios solo gestionan sus propios clientes"
-ON clients
-FOR ALL
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
+```bash
+pnpm exec supabase login
+pnpm exec supabase link --project-ref <tu-project-ref>
+pnpm exec supabase db push
 ```
 
----
+**Opción B: Supabase local (requiere Docker)**
 
-## 3. Principio de Inmutabilidad de Datos (Snapshot Paradigm)
-
-En aplicaciones de facturación o presupuestos, los datos históricos (precios, descripciones, datos del cliente) **no deben cambiar** retroactivamente si el catálogo o perfil del cliente se modifica en el futuro.
-
-- **Catálogo (`services`):** Funciona como plantilla/librería reusable.
-- **Items del Presupuesto (`quotation_items`):** Al agregar un servicio a un presupuesto, se **clonan** los valores de `title`, `description` y `unit_price`.
-
----
-
-## 4. Tipado e Interfaces (TypeScript)
-
-Estructura modular recomendada para el código frontend/backend:
-
-```typescript
-// --- PERFIL DE USUARIO ---
-export interface Profile {
-  id: string; // auth.uid()
-  updatedAt: string;
-  fullName: string;
-  companyName?: string;
-  logoUrl?: string;
-  defaultNotes?: string;
-}
-
-// --- CLIENTES ---
-export interface Client {
-  id: string;
-  userId: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  createdAt: string;
-}
-
-// --- CATÁLOGO DE SERVICIOS ---
-export interface Service {
-  id: string;
-  userId: string;
-  title: string;
-  description?: string;
-  defaultPrice: number;
-}
-
-// --- PRESUPUESTO / DOCUMENTO ---
-export interface QuotationItem {
-  id: string;
-  quotationId: string;
-  serviceId?: string; // Referencia opcional al catálogo
-  title: string; // Copia/Snapshot
-  description?: string;
-  quantity: number;
-  unitPrice: number;
-  subtotal: number;
-}
-
-export interface Quotation {
-  id: string;
-  userId: string;
-  clientId: string;
-  clientSnapshot: Client; // Copia de datos del cliente al emitir
-  items: QuotationItem[];
-  totalAmount: number;
-  status: "draft" | "sent" | "approved" | "rejected";
-  createdAt: string;
-  updatedAt: string;
-}
+```bash
+pnpm exec supabase start
 ```
 
----
+El comando imprime la URL y la key locales para usar en `.env.local`.
 
-## 5. Escalabilidad Futura (Cuentas Organizacionales / Equipos)
+#### Pasos manuales en el panel de Supabase
 
-Si en el futuro la aplicación evoluciona para soportar equipos de trabajo donde varios usuarios comparten información:
+Hay dos cosas que las migraciones **no** crean:
 
-1. Se introduce la entidad `organizations` y `organization_members`.
-2. La columna `user_id` en tablas compartidas se reemplaza o complementa con `organization_id`.
-3. La política RLS verifica pertenencia:
+1. **Bucket de Storage `public_images`.** Las políticas ya están en la migración, pero el bucket hay que crearlo en **Storage → New bucket**. Los archivos se guardan en una carpeta con el `user_id` del usuario (`<user_id>/archivo.png`), y las políticas solo permiten a cada usuario acceder a la suya.
+2. **Un usuario para entrar.** La app todavía no tiene pantalla de registro: creá tu usuario en **Authentication → Users → Add user** (con email y contraseña). El trigger `on_auth_user_created` genera su perfil automáticamente.
 
-```sql
-CREATE POLICY "Acceso por organización"
-ON clients
-FOR ALL
-USING (
-  organization_id IN (
-    SELECT organization_id
-    FROM organization_members
-    WHERE user_id = auth.uid()
-  )
-);
+En **Authentication → URL Configuration**, agregá la URL del sitio (`http://localhost:3000` para desarrollo y tu dominio de Vercel para producción).
+
+### 4. Levantar la app
+
+```bash
+pnpm dev
 ```
 
-Si el presupuesto sigue en Borrador: El archivo debería llamarse algo como Presupuesto-Borrador-${budget.public_code || 'temp'}.pdf o simplemente Borrador-${budget.client_name}.pdf. Así de entrada cualquiera que lo vea (incluyendo vos) entiende que ese PDF no es un documento fiscal o formal definitivo.
+Abrí http://localhost:3000.
 
-Si el presupuesto ya está Emitido: Acá sí se usa el identificador definitivo, por ejemplo Presupuesto-${budget.public_code}.pdf (ej. Presupuesto-001.pdf).
+## Scripts
+
+| Comando      | Descripción                                 |
+| ------------ | ------------------------------------------- |
+| `pnpm dev`   | Servidor de desarrollo                      |
+| `pnpm build` | Build de producción                         |
+| `pnpm start` | Servidor de producción (después de `build`) |
+| `pnpm lint`  | ESLint                                      |
+
+## Modelo de datos
+
+Arquitectura multi-tenant: todas las tablas tienen `user_id` y usan Row Level Security, así que cada usuario solo ve y modifica sus propios datos.
+
+| Tabla          | Contenido                                                                                                                         |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `profiles`     | Datos del usuario (nombre, rol, contacto, logo, imagen de pie) y contadores para el folio. Se crea con un trigger al registrarse. |
+| `budgets`      | Presupuestos: servicios, participantes, fechas, textos, configuración de visibilidad y estados.                                   |
+| `clients`      | Clientes del usuario.                                                                                                             |
+| `services`     | Catálogo de servicios reutilizables.                                                                                              |
+| `text_items`   | Textos frecuentes y cláusulas.                                                                                                    |
+| `budget_items` | Categorías de ítems.                                                                                                              |
+
+Los servicios y datos de un presupuesto se guardan como **copia** dentro de la fila (`jsonb`), de modo que cambiar el catálogo o el perfil no altera presupuestos ya armados.
+
+## Estructura del proyecto
+
+```
+app/
+  (auth)/        # /login
+  (budget)/      # /new-budget, /edit/[id]
+  (dashboard)/   # /, /profile
+  demo/          # versión sin login (localStorage)
+components/      # componentes de UI compartidos
+features/
+  budget/        # editor, PDF, acciones
+  clients/
+  services-catalog/
+  text-item/
+  user/
+  local/         # persistencia local para el modo demo
+hooks/
+lib/             # clientes de Supabase y utilidades
+supabase/
+  migrations/    # esquema de la base
+proxy.ts         # protección de rutas (auth)
+```
+
+## Deploy en Vercel
+
+1. Importá el repositorio en Vercel.
+2. Cargá las dos variables de entorno (`NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`).
+3. Desplegá. No requiere configuración adicional.
+4. Agregá la URL de producción en **Authentication → URL Configuration** de Supabase.
+
+## Capturas
+
+| Dashboard                                     | Editor                                  |
+| --------------------------------------------- | --------------------------------------- |
+| ![Dashboard](docs/screenshots/dashboard.webp) | ![Editor](docs/screenshots/editor.webp) |
+
+| Vista previa del PDF                      | Login                                 |
+| ----------------------------------------- | ------------------------------------- |
+| ![PDF](docs/screenshots/pdf-preview.webp) | ![Login](docs/screenshots/login.webp) |
+
+## Licencia
+
+Distribuido bajo licencia [MIT](LICENSE). Usalo, modificalo y compartilo libremente.
